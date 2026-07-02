@@ -169,8 +169,7 @@ export const transitionJobStatus = async (
           booking_id: job.booking_id,
           from_status: job.booking.status,
           to_status: newBookingStatus,
-          changed_by: userId,
-          note: `Sync from Job transition to ${newStatus}`
+          changed_by: userId
         }
       });
     }

@@ -158,8 +158,7 @@ export const rescheduleJob = async (
       booking_id: job.booking_id,
       from_status: job.booking.status,
       to_status: 'Pending',
-      changed_by: rescheduledByUserId,
-      note: 'Rescheduled'
+      changed_by: rescheduledByUserId
     }
   });
 
