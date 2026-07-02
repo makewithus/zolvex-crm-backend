@@ -21,6 +21,19 @@ export const getAllLeads = async (cityId?: string) => {
   });
 };
 
+export const getLeadById = async (id: string, cityId?: string) => {
+  const where: any = { id };
+  if (cityId) where.city_id = cityId;
+  
+  const lead = await prisma.lead.findFirst({
+    where,
+    include: { city: true, service: true, assignedTo: true, notes: { include: { createdBy: true } }, history: { include: { changedBy: true } }, customer: true }
+  });
+  
+  if (!lead) throw new AppError('Lead not found', 404);
+  return lead;
+};
+
 export const createLead = async (data: any, created_by: string) => {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // 1. Mandatory Customer deduplication and auto-creation

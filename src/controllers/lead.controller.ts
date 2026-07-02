@@ -9,6 +9,13 @@ export const getLeads = async (req: Request, res: Response) => {
   sendSuccess(res, 200, 'Leads retrieved', leads);
 };
 
+export const getLeadById = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const cityId = user.role === 'City Manager' ? user.cityId : undefined;
+  const lead = await leadService.getLeadById(req.params.id, cityId);
+  sendSuccess(res, 200, 'Lead retrieved', lead);
+};
+
 export const createLead = async (req: Request, res: Response) => {
   const user = (req as any).user;
   const lead = await leadService.createLead(req.body, user.id);
