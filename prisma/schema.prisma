@@ -20,6 +20,7 @@ model City {
   users        User[]
   serviceAreas ServiceArea[]
   pricingRules PricingRule[]
+  leads        Lead[]
 }
 
 model ServiceArea {
@@ -44,6 +45,9 @@ model User {
   is_active         Boolean             @default(true)
   skill_tags        String[]
   staffAvailability StaffAvailability[]
+  assignedLeads     Lead[]
+  leadNotes         LeadNote[]
+  leadHistory       LeadHistory[]
 }
 
 model StaffAvailability {
@@ -63,6 +67,7 @@ model Service {
   base_price   Float
   is_active    Boolean       @default(true)
   pricingRules PricingRule[]
+  leads        Lead[]
 }
 
 model PricingRule {
@@ -76,4 +81,67 @@ model PricingRule {
   base_price Float
 
   @@unique([service_id, city_id, bhk_type, tank_size])
+}
+
+enum LeadStatus {
+  New
+  Contacted
+  FollowUp
+  Qualified
+  QuotationSent
+  Booked
+  Lost
+}
+
+enum LeadSource {
+  Phone
+  WhatsApp
+  WebsiteForm
+  MetaAds
+  ManualEntry
+  Justdial
+  Referrals
+}
+
+model Lead {
+  id          String   @id @default(uuid())
+  phone       String
+  name        String?
+  source      LeadSource
+  status      LeadStatus @default(New)
+  city_id     String?
+  city        City?    @relation(fields: [city_id], references: [id])
+  service_id  String?
+  service     Service? @relation(fields: [service_id], references: [id])
+  assigned_to String?
+  assignedTo  User?    @relation(fields: [assigned_to], references: [id])
+
+  notes       LeadNote[]
+  history     LeadHistory[]
+}
+
+model LeadNote {
+  id         String   @id @default(uuid())
+  lead_id    String
+  lead       Lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  note_text  String
+  created_by String
+  createdBy  User     @relation(fields: [created_by], references: [id])
+  created_at DateTime @default(now())
+}
+
+model LeadHistory {
+  id         String   @id @default(uuid())
+  lead_id    String
+  lead       Lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  from_stage LeadStatus?
+  to_stage   LeadStatus
+  changed_by String
+  changedBy  User     @relation(fields: [changed_by], references: [id])
+  changed_at DateTime @default(now())
+}
+
+model LostReason {
+  id          String   @id @default(uuid())
+  reason_text String
 }
