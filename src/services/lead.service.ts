@@ -73,9 +73,10 @@ export const updateLead = async (id: string, data: any, changed_by: string) => {
     if (!allowed.includes(data.status as LeadStatus)) {
       throw new AppError(`Invalid transition from ${currentLead.status} to ${data.status}`, 400);
     }
-    if (data.status === 'Lost' && !data.lost_reason_id) {
-      throw new AppError('Lost reason is required when marking lead as Lost', 400);
-    }
+    // Temporarily disabled until frontend supports Lost Reasons
+    // if (data.status === 'Lost' && !data.lost_reason_id) {
+    //   throw new AppError('Lost reason is required when marking lead as Lost', 400);
+    // }
     // If not lost, ensure we don't save a lost_reason_id
     if (data.status !== 'Lost') {
       data.lost_reason_id = null;
