@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -19,6 +20,27 @@ async function main() {
     });
   }
   console.log('Seed: 5 system roles verified.');
+
+  const superAdminRole = await prisma.role.findUnique({
+    where: { name: 'Super Admin' }
+  });
+
+  if (superAdminRole) {
+    const phone = '9999999999';
+    const passwordHash = await bcrypt.hash('admin123', 10);
+
+    await prisma.user.upsert({
+      where: { phone },
+      update: {},
+      create: {
+        name: 'System Admin',
+        phone,
+        password_hash: passwordHash,
+        role_id: superAdminRole.id
+      }
+    });
+    console.log('Seed: Super Admin user verified.');
+  }
 }
 
 main()
