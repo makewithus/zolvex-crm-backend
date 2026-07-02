@@ -50,6 +50,7 @@ model User {
   leadNotes         LeadNote[]
   leadHistory       LeadHistory[]
   assignedBookings  Booking[]           @relation("AssignedBookings")
+  assignedJobs      Job[]               @relation("AssignedJobs")
 }
 
 model StaffAvailability {
@@ -245,6 +246,7 @@ model Booking {
   cancelled_at         DateTime?
 
   history              BookingHistory[]
+  job                  Job?
 
   @@index([booking_id])
   @@index([status])
@@ -269,4 +271,128 @@ model BookingHistory {
 model BookingSequence {
   id    Int @id @default(1)
   value Int @default(1)
+}
+
+enum JobPriority {
+  Low
+  Normal
+  High
+  Urgent
+}
+
+enum JobStatus {
+  Pending
+  Assigned
+  Accepted
+  Travelling
+  Arrived
+  Started
+  Completed
+  Cancelled
+  Failed
+  NoAccess
+  CustomerNotAvailable
+  Rescheduled
+}
+
+enum JobFailureReason {
+  NO_ACCESS
+  CUSTOMER_ABSENT
+  MATERIAL_MISSING
+  WEATHER
+  TECHNICAL_FAILURE
+  OTHER
+}
+
+enum MediaType {
+  Image
+  Video
+  Document
+}
+
+enum MediaCategory {
+  Before
+  After
+  Inspection
+  Other
+}
+
+model Job {
+  id                         String    @id @default(uuid())
+  job_id                     String    @unique 
+  booking_id                 String    @unique
+  booking                    Booking   @relation(fields: [booking_id], references: [id])
+  
+  assigned_user_id           String?
+  assignedUser               User?     @relation("AssignedJobs", fields: [assigned_user_id], references: [id])
+  
+  status                     JobStatus @default(Pending)
+  priority                   JobPriority @default(Normal)
+  
+  scheduled_start            DateTime
+  scheduled_end              DateTime?
+  actual_start               DateTime?
+  actual_end                 DateTime?
+  estimated_duration_minutes Int?
+
+  completion_notes           String?
+  internal_notes             String?
+  cancellation_reason        String?
+  failure_reason             JobFailureReason?
+  
+  signature_url              String?
+  signed_by_name             String?
+  signed_at                  DateTime?
+  
+  latitude                   Float?
+  longitude                  Float?
+
+  created_by                 String
+  updated_by                 String?
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime  @updatedAt
+
+  history                    JobHistory[]
+  assignment_history         JobAssignmentHistory[]
+  media                      JobMedia[]
+  
+  @@index([job_id])
+  @@index([status])
+  @@index([assigned_user_id])
+  @@index([scheduled_start])
+}
+
+model JobMedia {
+  id           String        @id @default(uuid())
+  job_id       String
+  job          Job           @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  type         MediaType     @default(Image)
+  category     MediaCategory @default(Other)
+  url          String
+  uploaded_by  String
+  uploaded_at  DateTime      @default(now())
+}
+
+model JobHistory {
+  id               String    @id @default(uuid())
+  job_id           String
+  job              Job       @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  from_status      JobStatus?
+  to_status        JobStatus
+  changed_by       String
+  changed_by_role  String?
+  ip_address       String?
+  changed_at       DateTime  @default(now())
+  note             String?
+}
+
+model JobAssignmentHistory {
+  id                 String    @id @default(uuid())
+  job_id             String
+  job                Job       @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  previous_user_id   String?
+  new_user_id        String?
+  assigned_by        String
+  assigned_at        DateTime  @default(now())
+  reason             String?
 }
