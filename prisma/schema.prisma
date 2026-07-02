@@ -273,6 +273,11 @@ model BookingSequence {
   value Int @default(1)
 }
 
+model JobSequence {
+  id    Int @id @default(1)
+  value Int @default(1)
+}
+
 enum JobPriority {
   Low
   Normal
