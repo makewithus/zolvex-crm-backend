@@ -11,3 +11,8 @@ export const createService = async (req: Request, res: Response) => {
   const service = await serviceService.createService(req.body);
   sendSuccess(res, 201, 'Service created', service);
 };
+
+export const updateService = async (req: Request, res: Response) => {
+  const service = await serviceService.updateService(req.params.id as string, req.body);
+  sendSuccess(res, 200, 'Service updated', service);
+};

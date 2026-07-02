@@ -9,5 +9,15 @@ export const getPricingRules = async (req: Request, res: Response) => {
 
 export const createPricingRule = async (req: Request, res: Response) => {
   const rule = await pricingRuleService.createPricingRule(req.body);
-  sendSuccess(res, 201, 'Pricing Rule created', rule);
+  sendSuccess(res, 201, 'Pricing rule created', rule);
+};
+
+export const updatePricingRule = async (req: Request, res: Response) => {
+  const rule = await pricingRuleService.updatePricingRule(req.params.id as string, req.body);
+  sendSuccess(res, 200, 'Pricing rule updated', rule);
+};
+
+export const deletePricingRule = async (req: Request, res: Response) => {
+  await pricingRuleService.deletePricingRule(req.params.id as string);
+  res.status(204).send();
 };

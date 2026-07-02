@@ -11,3 +11,8 @@ export const createCity = async (req: Request, res: Response) => {
   const city = await cityService.createCity(req.body);
   sendSuccess(res, 201, 'City created', city);
 };
+
+export const updateCity = async (req: Request, res: Response) => {
+  const city = await cityService.updateCity(req.params.id as string, req.body);
+  sendSuccess(res, 200, 'City updated', city);
+};

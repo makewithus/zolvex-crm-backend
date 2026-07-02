@@ -13,3 +13,13 @@ export const createUser = async (req: Request, res: Response) => {
   const newUser = await userService.createUser(userData, password);
   sendSuccess(res, 201, 'User created', { id: newUser.id });
 };
+
+export const updateUser = async (req: Request, res: Response) => {
+  const updatedUser = await userService.updateUser(req.params.id as string, req.body);
+  sendSuccess(res, 200, 'User updated', updatedUser);
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  await userService.resetPassword(req.params.id as string, req.body.new_password);
+  sendSuccess(res, 200, 'Password updated successfully');
+};
