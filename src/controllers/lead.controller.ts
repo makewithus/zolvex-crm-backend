@@ -10,12 +10,14 @@ export const getLeads = async (req: Request, res: Response) => {
 };
 
 export const createLead = async (req: Request, res: Response) => {
-  const lead = await leadService.createLead(req.body);
+  const user = (req as any).user;
+  const lead = await leadService.createLead(req.body, user.id);
   sendSuccess(res, 201, 'Lead created', lead);
 };
 
 export const updateLead = async (req: Request, res: Response) => {
-  const lead = await leadService.updateLead(req.params.id as string, req.body);
+  const user = (req as any).user;
+  const lead = await leadService.updateLead(req.params.id as string, req.body, user.id);
   sendSuccess(res, 200, 'Lead updated', lead);
 };
 

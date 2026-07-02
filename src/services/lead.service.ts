@@ -1,6 +1,17 @@
 import { PrismaClient, LeadStatus } from '@prisma/client';
+import { AppError } from '../utils/AppError';
 
 const prisma = new PrismaClient();
+
+const ALLOWED_TRANSITIONS: Record<LeadStatus, LeadStatus[]> = {
+  New: ['Contacted', 'Qualified', 'Lost'],
+  Contacted: ['FollowUp', 'Qualified', 'QuotationSent', 'Lost'],
+  FollowUp: ['Contacted', 'Qualified', 'QuotationSent', 'Lost'],
+  Qualified: ['QuotationSent', 'Booked', 'Lost'],
+  QuotationSent: ['FollowUp', 'Booked', 'Lost'],
+  Booked: ['Lost'],
+  Lost: ['New', 'Contacted']
+};
 
 export const getAllLeads = async (cityId?: string) => {
   const where = cityId ? { city_id: cityId } : {};
@@ -10,25 +21,71 @@ export const getAllLeads = async (cityId?: string) => {
   });
 };
 
-export const createLead = async (data: any) => {
-  return prisma.lead.create({ data });
+export const createLead = async (data: any, created_by: string) => {
+  return prisma.$transaction(async (tx) => {
+    const lead = await tx.lead.create({ data });
+    await tx.leadHistory.create({
+      data: {
+        lead_id: lead.id,
+        to_stage: 'New',
+        changed_by: created_by
+      }
+    });
+    return lead;
+  });
 };
 
-export const updateLead = async (id: string, data: any) => {
-  return prisma.lead.update({
-    where: { id },
-    data
+export const updateLead = async (id: string, data: any, changed_by: string) => {
+  const currentLead = await prisma.lead.findUnique({ where: { id } });
+  if (!currentLead) throw new AppError('Lead not found', 404);
+
+  // Validate status transition
+  if (data.status && data.status !== currentLead.status) {
+    const allowed = ALLOWED_TRANSITIONS[currentLead.status as LeadStatus];
+    if (!allowed.includes(data.status as LeadStatus)) {
+      throw new AppError(`Invalid transition from ${currentLead.status} to ${data.status}`, 400);
+    }
+    if (data.status === 'Lost' && !data.lost_reason_id) {
+      throw new AppError('Lost reason is required when marking lead as Lost', 400);
+    }
+    // If not lost, ensure we don't save a lost_reason_id
+    if (data.status !== 'Lost') {
+      data.lost_reason_id = null;
+    }
+  }
+
+  // Validate assignment
+  if (data.assigned_to && data.assigned_to !== currentLead.assigned_to) {
+    const user = await prisma.user.findUnique({ where: { id: data.assigned_to } });
+    if (!user || !user.is_active) {
+      throw new AppError('Invalid or inactive user assigned', 400);
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.lead.update({
+      where: { id },
+      data
+    });
+
+    if (data.status && data.status !== currentLead.status) {
+      await tx.leadHistory.create({
+        data: {
+          lead_id: id,
+          from_stage: currentLead.status,
+          to_stage: data.status,
+          changed_by
+        }
+      });
+    }
+
+    // Optional: Log assignment as history? Product spec usually separates history. We log stage transitions above.
+    return updated;
   });
 };
 
 export const createLeadNote = async (lead_id: string, note_text: string, created_by: string) => {
   return prisma.leadNote.create({
     data: { lead_id, note_text, created_by }
-  });
-};
-
-export const createLeadHistory = async (lead_id: string, from_stage: LeadStatus | null, to_stage: LeadStatus, changed_by: string) => {
-  return prisma.leadHistory.create({
-    data: { lead_id, from_stage, to_stage, changed_by }
   });
 };

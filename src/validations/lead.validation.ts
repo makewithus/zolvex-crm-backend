@@ -14,6 +14,7 @@ export const updateLeadSchema = z.object({
   body: z.object({
     status: z.enum(['New', 'Contacted', 'FollowUp', 'Qualified', 'QuotationSent', 'Booked', 'Lost']).optional(),
     assigned_to: z.string().uuid().optional().nullable(),
+    lost_reason_id: z.string().uuid().optional().nullable(),
   }),
 });
 

@@ -1,15 +1,20 @@
 import { Router } from 'express';
 import { getLeads, createLead, updateLead, addLeadNote } from '../../controllers/lead.controller';
 import { protect } from '../../middlewares/auth.middleware';
+import { authorize } from '../../middlewares/rbac.middleware';
 import { validateRequest } from '../../middlewares/validate.middleware';
 import { createLeadSchema, updateLeadSchema, createLeadNoteSchema } from '../../validations/lead.validation';
 import { catchAsync } from '../../utils/catchAsync';
 
 const router = Router();
 router.use(protect);
-router.get('/', catchAsync(getLeads));
-router.post('/', validateRequest(createLeadSchema), catchAsync(createLead));
-router.patch('/:id', validateRequest(updateLeadSchema), catchAsync(updateLead));
-router.post('/:id/notes', validateRequest(createLeadNoteSchema), catchAsync(addLeadNote));
+
+// Apply central RBAC protection
+const leadRoles = ['Super Admin', 'City Manager', 'Support Agent'];
+
+router.get('/', authorize(...leadRoles), catchAsync(getLeads));
+router.post('/', authorize(...leadRoles), validateRequest(createLeadSchema), catchAsync(createLead));
+router.patch('/:id', authorize(...leadRoles), validateRequest(updateLeadSchema), catchAsync(updateLead));
+router.post('/:id/notes', authorize(...leadRoles), validateRequest(createLeadNoteSchema), catchAsync(addLeadNote));
 
 export default router;

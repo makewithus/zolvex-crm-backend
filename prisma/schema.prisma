@@ -115,6 +115,8 @@ model Lead {
   service     Service? @relation(fields: [service_id], references: [id])
   assigned_to String?
   assignedTo  User?    @relation(fields: [assigned_to], references: [id])
+  lost_reason_id String?
+  lostReason  LostReason? @relation(fields: [lost_reason_id], references: [id])
 
   notes       LeadNote[]
   history     LeadHistory[]
@@ -144,4 +146,5 @@ model LeadHistory {
 model LostReason {
   id          String   @id @default(uuid())
   reason_text String
+  leads       Lead[]
 }
