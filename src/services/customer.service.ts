@@ -12,7 +12,7 @@ export const getAllCustomers = async () => {
 export const getCustomerById = async (id: string) => {
   const customer = await prisma.customer.findUnique({
     where: { id },
-    include: { leads: true }
+    include: { leads: { include: { service: true } } }
   });
   if (!customer) throw new AppError('Customer not found', 404);
   return customer;
