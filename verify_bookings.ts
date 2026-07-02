@@ -10,14 +10,13 @@ async function runTests() {
   // 1. Setup Test Data
   let role = await prisma.role.findFirst({ where: { name: 'Super Admin' } });
   if (!role) {
-     role = await prisma.role.create({ data: { name: 'Super Admin', permissions: [] }});
+     role = await prisma.role.create({ data: { name: 'Super Admin' }});
   }
 
   let user = await prisma.user.findFirst();
   if (!user) {
     user = await prisma.user.create({
       data: {
-        email: 'test@zolvex.com',
         password_hash: 'hash',
         name: 'Test Admin',
         phone: '1234567890',
@@ -28,7 +27,7 @@ async function runTests() {
 
   let city = await prisma.city.findFirst();
   if (!city) {
-    city = await prisma.city.create({ data: { name: 'Test City', code: 'TC', is_active: true } });
+    city = await prisma.city.create({ data: { name: 'Test City', is_active: true } });
   }
 
   let service = await prisma.service.findFirst();
@@ -41,7 +40,7 @@ async function runTests() {
   let pricingRule = await prisma.pricingRule.findFirst();
   if (!pricingRule) {
     pricingRule = await prisma.pricingRule.create({
-      data: { city_id: city.id, service_id: service.id, base_price: 199.95, is_active: true }
+      data: { city_id: city.id, service_id: service.id, base_price: 199.95 }
     });
   } else {
     await prisma.pricingRule.update({ where: { id: pricingRule.id }, data: { base_price: 199.95 } });
