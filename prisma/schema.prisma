@@ -19,6 +19,7 @@ model City {
   is_active    Boolean       @default(true)
   users        User[]
   serviceAreas ServiceArea[]
+  pricingRules PricingRule[]
 }
 
 model ServiceArea {
@@ -53,4 +54,26 @@ model StaffAvailability {
   is_available    Boolean  @default(true)
   daily_job_limit Int?
   jobs_assigned   Int      @default(0)
+}
+
+model Service {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  description  String?
+  base_price   Float
+  is_active    Boolean       @default(true)
+  pricingRules PricingRule[]
+}
+
+model PricingRule {
+  id         String  @id @default(uuid())
+  service_id String
+  service    Service @relation(fields: [service_id], references: [id])
+  city_id    String?
+  city       City?   @relation(fields: [city_id], references: [id])
+  bhk_type   String?
+  tank_size  String?
+  base_price Float
+
+  @@unique([service_id, city_id, bhk_type, tank_size])
 }

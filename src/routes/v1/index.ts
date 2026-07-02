@@ -3,6 +3,8 @@ import authRoutes from './auth.routes';
 import cityRoutes from './city.routes';
 import userRoutes from './user.routes';
 import roleRoutes from './role.routes';
+import serviceRoutes from './service.routes';
+import pricingRuleRoutes from './pricingRule.routes';
 
 const router = Router();
 
@@ -14,5 +16,7 @@ router.use('/auth', authRoutes);
 router.use('/cities', cityRoutes);
 router.use('/users', userRoutes);
 router.use('/roles', roleRoutes);
+router.use('/services', serviceRoutes);
+router.use('/pricing-rules', pricingRuleRoutes);
 
 export default router;
