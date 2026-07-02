@@ -83,6 +83,8 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
     if (!lead) throw new AppError('Lead not found', 404);
     if (lead.status === 'Booked') throw new AppError('Lead is already booked', 400);
     if (lead.status === 'Lost') throw new AppError('Cannot convert a lost lead', 400);
+    if (!lead.service_id) throw new AppError('Please edit the Lead and assign a Service before converting to a Booking.', 400);
+    if (!lead.city_id) throw new AppError('Please edit the Lead and assign a City before converting to a Booking.', 400);
     
     // Check for existing booking on this lead
     const existingBooking = await tx.booking.findUnique({ where: { lead_id: leadId } });
