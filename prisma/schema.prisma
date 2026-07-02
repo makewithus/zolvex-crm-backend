@@ -117,6 +117,8 @@ model Lead {
   assignedTo  User?    @relation(fields: [assigned_to], references: [id])
   lost_reason_id String?
   lostReason  LostReason? @relation(fields: [lost_reason_id], references: [id])
+  customer_id String
+  customer    Customer   @relation(fields: [customer_id], references: [id])
 
   notes       LeadNote[]
   history     LeadHistory[]
@@ -147,4 +149,14 @@ model LostReason {
   id          String   @id @default(uuid())
   reason_text String
   leads       Lead[]
+}
+
+model Customer {
+  id                 String   @id @default(uuid())
+  phone              String   @unique
+  name               String?
+  is_repeat_customer Boolean  @default(false)
+  tags               String[]
+  
+  leads              Lead[]
 }

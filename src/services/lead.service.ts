@@ -1,4 +1,4 @@
-import { PrismaClient, LeadStatus } from '@prisma/client';
+import { PrismaClient, LeadStatus, Prisma } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 
 const prisma = new PrismaClient();
@@ -22,8 +22,23 @@ export const getAllLeads = async (cityId?: string) => {
 };
 
 export const createLead = async (data: any, created_by: string) => {
-  return prisma.$transaction(async (tx) => {
-    const lead = await tx.lead.create({ data });
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // 1. Mandatory Customer deduplication and auto-creation
+    const customer = await tx.customer.upsert({
+      where: { phone: data.phone },
+      update: {
+        name: data.name || undefined,
+      },
+      create: {
+        phone: data.phone,
+        name: data.name,
+      }
+    });
+
+    // 2. Attach Customer to Lead
+    const leadData = { ...data, customer_id: customer.id };
+
+    const lead = await tx.lead.create({ data: leadData });
     await tx.leadHistory.create({
       data: {
         lead_id: lead.id,
@@ -62,7 +77,7 @@ export const updateLead = async (id: string, data: any, changed_by: string) => {
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const updated = await tx.lead.update({
       where: { id },
       data
