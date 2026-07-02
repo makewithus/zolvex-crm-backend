@@ -21,6 +21,7 @@ model City {
   serviceAreas ServiceArea[]
   pricingRules PricingRule[]
   leads        Lead[]
+  bookings     Booking[]
 }
 
 model ServiceArea {
@@ -48,6 +49,7 @@ model User {
   assignedLeads     Lead[]
   leadNotes         LeadNote[]
   leadHistory       LeadHistory[]
+  assignedBookings  Booking[]           @relation("AssignedBookings")
 }
 
 model StaffAvailability {
@@ -68,6 +70,7 @@ model Service {
   is_active    Boolean       @default(true)
   pricingRules PricingRule[]
   leads        Lead[]
+  bookings     Booking[]
 }
 
 model PricingRule {
@@ -81,6 +84,7 @@ model PricingRule {
   base_price Float
 
   @@unique([service_id, city_id, bhk_type, tank_size])
+  bookings   Booking[]
 }
 
 enum LeadStatus {
@@ -122,6 +126,7 @@ model Lead {
 
   notes       LeadNote[]
   history     LeadHistory[]
+  booking     Booking?
 }
 
 model LeadNote {
@@ -159,4 +164,109 @@ model Customer {
   tags               String[]
   
   leads              Lead[]
+  bookings           Booking[]
+}
+
+enum BookingStatus {
+  Draft
+  Pending
+  Confirmed
+  Scheduled
+  Assigned
+  InProgress
+  Completed
+  Cancelled
+  NoShow
+}
+
+model Booking {
+  id                   String        @id @default(uuid())
+  booking_id           String        @unique
+
+  lead_id              String?       @unique 
+  lead                 Lead?         @relation(fields: [lead_id], references: [id])
+  customer_id          String
+  customer             Customer      @relation(fields: [customer_id], references: [id])
+  city_id              String
+  city                 City          @relation(fields: [city_id], references: [id])
+  service_id           String
+  service              Service       @relation(fields: [service_id], references: [id])
+  pricing_rule_id      String?
+  pricingRule          PricingRule?  @relation(fields: [pricing_rule_id], references: [id])
+
+  scheduled_date       DateTime
+  slot                 String?       
+
+  customer_name        String?
+  customer_phone       String
+  customer_email       String?
+  
+  address_line_1       String
+  address_line_2       String?
+  area                 String?
+  landmark             String?
+  city_name            String
+  postal_code          String
+  state                String
+  country              String        @default("India")
+  latitude             Float?        
+  longitude            Float?
+  
+  service_name         String
+  estimated_duration_minutes Int?
+
+  base_price           Decimal       @db.Decimal(10,2)
+  discount             Decimal       @default(0) @db.Decimal(10,2)
+  tax                  Decimal       @default(0) @db.Decimal(10,2)
+  final_amount         Decimal       @db.Decimal(10,2)
+  pricing_snapshot_json Json?        
+  pricing_rule_name    String?
+  pricing_version      String?
+
+  status               BookingStatus @default(Pending)
+  
+  notes                String?       
+  special_instructions String?       
+  cancel_reason        String?
+
+  assigned_user_id     String?
+  assignedUser         User?         @relation("AssignedBookings", fields: [assigned_user_id], references: [id])
+  
+  created_by           String
+  updated_by           String?
+  created_at           DateTime      @default(now())
+  updated_at           DateTime      @updatedAt
+
+  confirmed_at         DateTime?
+  scheduled_at         DateTime?
+  assigned_at          DateTime?
+  started_at           DateTime?
+  completed_at         DateTime?
+  cancelled_at         DateTime?
+
+  history              BookingHistory[]
+
+  @@index([booking_id])
+  @@index([status])
+  @@index([scheduled_date])
+  @@index([customer_id])
+  @@index([city_id])
+  @@index([service_id])
+  @@index([assigned_user_id])
+  @@index([created_at])
+}
+
+model BookingHistory {
+  id           String        @id @default(uuid())
+  booking_id   String
+  booking      Booking       @relation(fields: [booking_id], references: [id])
+  from_status  BookingStatus?
+  to_status    BookingStatus
+  changed_by   String
+  changed_at   DateTime      @default(now())
+}
+
+model BookingSequence {
+  id    Int @id @default(1)
+  value Int @default(1)
 }
