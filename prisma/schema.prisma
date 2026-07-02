@@ -6,3 +6,51 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model Role {
+  id    String @id @default(uuid())
+  name  String @unique
+  users User[]
+}
+
+model City {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  is_active    Boolean       @default(true)
+  users        User[]
+  serviceAreas ServiceArea[]
+}
+
+model ServiceArea {
+  id             String  @id @default(uuid())
+  city_id        String
+  city           City    @relation(fields: [city_id], references: [id])
+  name           String
+  polygon_coords Json
+  is_active      Boolean @default(true)
+}
+
+model User {
+  id                String              @id @default(uuid())
+  name              String
+  phone             String              @unique
+  password_hash     String
+  role_id           String
+  role              Role                @relation(fields: [role_id], references: [id])
+  city_id           String?
+  city              City?               @relation(fields: [city_id], references: [id])
+  joining_date      DateTime?
+  is_active         Boolean             @default(true)
+  skill_tags        String[]
+  staffAvailability StaffAvailability[]
+}
+
+model StaffAvailability {
+  id              String   @id @default(uuid())
+  staff_id        String
+  staff           User     @relation(fields: [staff_id], references: [id])
+  date            DateTime
+  is_available    Boolean  @default(true)
+  daily_job_limit Int?
+  jobs_assigned   Int      @default(0)
+}
