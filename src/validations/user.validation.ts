@@ -4,7 +4,7 @@ export const updateUserSchema = z.object({
   params: z.object({ id: z.string().uuid('Invalid user ID format') }),
   body: z.object({
     name: z.string().min(1).optional(),
-    phone: z.string().min(10).optional(),
+    phone: z.string().regex(/^\d{10,}$/, 'Phone must be at least 10 digits').optional(),
     role_id: z.string().uuid().optional(),
     city_id: z.string().uuid().nullable().optional(),
     is_active: z.boolean().optional(),

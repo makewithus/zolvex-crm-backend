@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createLeadSchema = z.object({
   body: z.object({
-    phone: z.string().min(10, 'Valid phone required'),
+    phone: z.string().regex(/^\d{10,}$/, 'Phone must be at least 10 digits'),
     name: z.string().optional().nullable(),
     source: z.enum(['Phone', 'WhatsApp', 'WebsiteForm', 'MetaAds', 'ManualEntry', 'Justdial', 'Referrals']),
     city_id: z.string().uuid().optional().nullable(),
