@@ -12,6 +12,7 @@ import jobRoutes from './job.routes';
 import lostReasonRoutes from './lostReason.routes';
 import dashboardRoutes from './dashboard.routes';
 import invoiceRoutes from './invoice.routes';
+import paymentRoutes from './payment.routes';
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use('/customers', customerRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/lost-reasons', lostReasonRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/payments', paymentRoutes);
 
 export default router;

@@ -52,6 +52,7 @@ model User {
   assignedBookings  Booking[]           @relation("AssignedBookings")
   assignedJobs      Job[]               @relation("AssignedJobs")
   Payment           Payment[]
+  PaymentHistory    PaymentHistory[]
 }
 
 model StaffAvailability {
@@ -463,11 +464,11 @@ model Payment {
 
   amount         Decimal                  @db.Decimal(10, 2)
   payment_method PaymentMethod
-  payment_status PaymentTransactionStatus @default(Completed)
+  payment_status PaymentTransactionStatus @default(Pending)
   payment_date   DateTime                 @default(now())
 
-  payment_metadata_json Json?
-  notes                 String?
+  payment_metadata Json?
+  notes            String?
 
   recorded_by String
   user        User   @relation(fields: [recorded_by], references: [id])
@@ -480,15 +481,20 @@ model Payment {
   @@index([customer_id])
   @@index([payment_date])
   @@index([payment_status])
+  @@index([recorded_by])
 }
 
 model PaymentHistory {
-  id         String   @id @default(uuid())
-  payment_id String
-  payment    Payment  @relation(fields: [payment_id], references: [id], onDelete: Cascade)
-  action     String
-  changed_by String
-  changed_at DateTime @default(now())
+  id              String   @id @default(uuid())
+  payment_id      String
+  payment         Payment  @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+  action          String
+  changed_by      String
+  changedBy       User     @relation(fields: [changed_by], references: [id])
+  changed_by_role String?
+  reason          String?
+  ip_address      String?
+  changed_at      DateTime @default(now())
 }
 
 model Invoice {
