@@ -141,8 +141,8 @@ async function run() {
   await prisma.job.delete({ where: { id: job.id } });
   await prisma.bookingHistory.deleteMany({ where: { booking_id: booking.id } });
   await prisma.booking.delete({ where: { id: booking.id } });
-  await prisma.user.delete({ where: { id: { in: [admin.id, tech1.id, tech2.id] } } });
-  await prisma.city.delete({ where: { id: { in: [city.id, otherCity.id] } } });
+  await prisma.user.deleteMany({ where: { id: { in: [admin.id, tech1.id, tech2.id] } } });
+  await prisma.city.deleteMany({ where: { id: { in: [city.id, otherCity.id] } } });
   await prisma.customer.delete({ where: { id: customer.id } });
   await prisma.service.delete({ where: { id: service.id } });
 
