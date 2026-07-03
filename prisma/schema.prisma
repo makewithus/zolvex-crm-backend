@@ -51,6 +51,7 @@ model User {
   leadHistory       LeadHistory[]
   assignedBookings  Booking[]           @relation("AssignedBookings")
   assignedJobs      Job[]               @relation("AssignedJobs")
+  Payment           Payment[]
 }
 
 model StaffAvailability {
@@ -75,18 +76,18 @@ model Service {
 }
 
 model PricingRule {
-  id         String    @id @default(uuid())
-  service_id String
-  service    Service   @relation(fields: [service_id], references: [id])
-  city_id    String?
-  city       City?     @relation(fields: [city_id], references: [id])
-  bhk_type   String?
-  tank_size  String?
+  id           String    @id @default(uuid())
+  service_id   String
+  service      Service   @relation(fields: [service_id], references: [id])
+  city_id      String?
+  city         City?     @relation(fields: [city_id], references: [id])
+  bhk_type     String?
+  tank_size    String?
   base_price   Float
-  cgst_percent Float @default(9)
-  sgst_percent Float @default(9)
-  igst_percent Float @default(0)
-  bookings   Booking[]
+  cgst_percent Float     @default(9)
+  sgst_percent Float     @default(9)
+  igst_percent Float     @default(0)
+  bookings     Booking[]
 
   @@unique([service_id, city_id, bhk_type, tank_size])
 }
@@ -169,6 +170,7 @@ model Customer {
 
   leads    Lead[]
   bookings Booking[]
+  Payment  Payment[]
 }
 
 enum BookingStatus {
@@ -423,9 +425,70 @@ enum PaymentStatus {
   Paid
 }
 
+enum PaymentMethod {
+  Cash
+  UPI
+  BankTransfer
+  Card
+  Cheque
+}
+
+enum PaymentTransactionStatus {
+  Pending
+  Completed
+  Failed
+  Voided
+}
+
 model InvoiceSequence {
   id    Int @id @default(1)
   value Int @default(1)
+}
+
+model PaymentSequence {
+  id    Int @id @default(1)
+  value Int @default(1)
+}
+
+model Payment {
+  id              String @id @default(uuid())
+  payment_number  String @unique // e.g. RCPT-2607-0001
+  sequence_number Int    @unique
+
+  invoice_id String
+  invoice    Invoice @relation(fields: [invoice_id], references: [id])
+
+  customer_id String
+  customer    Customer @relation(fields: [customer_id], references: [id])
+
+  amount         Decimal                  @db.Decimal(10, 2)
+  payment_method PaymentMethod
+  payment_status PaymentTransactionStatus @default(Completed)
+  payment_date   DateTime                 @default(now())
+
+  payment_metadata_json Json?
+  notes                 String?
+
+  recorded_by String
+  user        User   @relation(fields: [recorded_by], references: [id])
+
+  created_at DateTime @default(now())
+
+  history PaymentHistory[]
+
+  @@index([invoice_id])
+  @@index([customer_id])
+  @@index([payment_date])
+  @@index([payment_status])
+}
+
+model PaymentHistory {
+  id         String   @id @default(uuid())
+  payment_id String
+  payment    Payment  @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+  action     String
+  changed_by String
+  changed_at DateTime @default(now())
 }
 
 model Invoice {
@@ -461,24 +524,23 @@ model Invoice {
   total_tax_amount Decimal @default(0) @db.Decimal(10, 2)
   final_amount     Decimal @db.Decimal(10, 2)
 
-  pricing_snapshot_json Json?
-
-  // State
-  status InvoiceStatus @default(Draft)
-
-  // Payments
+  // Payment Tracking
   payment_status PaymentStatus @default(Unpaid)
   amount_paid    Decimal       @default(0) @db.Decimal(10, 2)
-  balance_due    Decimal       @db.Decimal(10, 2)
+  balance_due    Decimal       @db.Decimal(10, 2) // Typically initialized with final_amount
 
-  // Audit
+  pricing_snapshot_json Json?
+
+  status InvoiceStatus @default(Draft)
+
   created_by String
   updated_by String?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  items   InvoiceItem[]
-  history InvoiceHistory[]
+  items    InvoiceItem[]
+  history  InvoiceHistory[]
+  payments Payment[]
 
   @@index([status])
   @@index([payment_status])
