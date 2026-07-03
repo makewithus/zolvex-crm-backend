@@ -7,6 +7,9 @@ export const createPricingRuleSchema = z.object({
     bhk_type: z.string().optional().nullable(),
     tank_size: z.string().optional().nullable(),
     base_price: z.number().min(0, 'Base price must be >= 0'),
+    cgst_percent: z.number().min(0).optional(),
+    sgst_percent: z.number().min(0).optional(),
+    igst_percent: z.number().min(0).optional(),
   }),
 });
 
@@ -17,6 +20,9 @@ export const updatePricingRuleSchema = z.object({
     bhk_type: z.string().nullable().optional(),
     tank_size: z.string().nullable().optional(),
     city_id: z.string().uuid().nullable().optional(),
+    cgst_percent: z.number().min(0).optional(),
+    sgst_percent: z.number().min(0).optional(),
+    igst_percent: z.number().min(0).optional(),
   }).strict()
 });
 
