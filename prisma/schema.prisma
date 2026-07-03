@@ -75,17 +75,17 @@ model Service {
 }
 
 model PricingRule {
-  id         String  @id @default(uuid())
+  id         String    @id @default(uuid())
   service_id String
-  service    Service @relation(fields: [service_id], references: [id])
+  service    Service   @relation(fields: [service_id], references: [id])
   city_id    String?
-  city       City?   @relation(fields: [city_id], references: [id])
+  city       City?     @relation(fields: [city_id], references: [id])
   bhk_type   String?
   tank_size  String?
   base_price Float
+  bookings   Booking[]
 
   @@unique([service_id, city_id, bhk_type, tank_size])
-  bookings   Booking[]
 }
 
 enum LeadStatus {
@@ -109,25 +109,25 @@ enum LeadSource {
 }
 
 model Lead {
-  id          String   @id @default(uuid())
-  phone       String
-  name        String?
-  source      LeadSource
-  status      LeadStatus @default(New)
-  city_id     String?
-  city        City?    @relation(fields: [city_id], references: [id])
-  service_id  String?
-  service     Service? @relation(fields: [service_id], references: [id])
-  assigned_to String?
-  assignedTo  User?    @relation(fields: [assigned_to], references: [id])
+  id             String      @id @default(uuid())
+  phone          String
+  name           String?
+  source         LeadSource
+  status         LeadStatus  @default(New)
+  city_id        String?
+  city           City?       @relation(fields: [city_id], references: [id])
+  service_id     String?
+  service        Service?    @relation(fields: [service_id], references: [id])
+  assigned_to    String?
+  assignedTo     User?       @relation(fields: [assigned_to], references: [id])
   lost_reason_id String?
-  lostReason  LostReason? @relation(fields: [lost_reason_id], references: [id])
-  customer_id String
-  customer    Customer   @relation(fields: [customer_id], references: [id])
+  lostReason     LostReason? @relation(fields: [lost_reason_id], references: [id])
+  customer_id    String
+  customer       Customer    @relation(fields: [customer_id], references: [id])
 
-  notes       LeadNote[]
-  history     LeadHistory[]
-  booking     Booking?
+  notes   LeadNote[]
+  history LeadHistory[]
+  booking Booking?
 }
 
 model LeadNote {
@@ -141,18 +141,18 @@ model LeadNote {
 }
 
 model LeadHistory {
-  id         String   @id @default(uuid())
+  id         String      @id @default(uuid())
   lead_id    String
-  lead       Lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  lead       Lead        @relation(fields: [lead_id], references: [id], onDelete: Cascade)
   from_stage LeadStatus?
   to_stage   LeadStatus
   changed_by String
-  changedBy  User     @relation(fields: [changed_by], references: [id])
-  changed_at DateTime @default(now())
+  changedBy  User        @relation(fields: [changed_by], references: [id])
+  changed_at DateTime    @default(now())
 }
 
 model LostReason {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   reason_text String
   leads       Lead[]
 }
@@ -163,9 +163,9 @@ model Customer {
   name               String?
   is_repeat_customer Boolean  @default(false)
   tags               String[]
-  
-  leads              Lead[]
-  bookings           Booking[]
+
+  leads    Lead[]
+  bookings Booking[]
 }
 
 enum BookingStatus {
@@ -181,72 +181,72 @@ enum BookingStatus {
 }
 
 model Booking {
-  id                   String        @id @default(uuid())
-  booking_id           String        @unique
+  id         String @id @default(uuid())
+  booking_id String @unique
 
-  lead_id              String?       @unique 
-  lead                 Lead?         @relation(fields: [lead_id], references: [id])
-  customer_id          String
-  customer             Customer      @relation(fields: [customer_id], references: [id])
-  city_id              String
-  city                 City          @relation(fields: [city_id], references: [id])
-  service_id           String
-  service              Service       @relation(fields: [service_id], references: [id])
-  pricing_rule_id      String?
-  pricingRule          PricingRule?  @relation(fields: [pricing_rule_id], references: [id])
+  lead_id         String?      @unique
+  lead            Lead?        @relation(fields: [lead_id], references: [id])
+  customer_id     String
+  customer        Customer     @relation(fields: [customer_id], references: [id])
+  city_id         String
+  city            City         @relation(fields: [city_id], references: [id])
+  service_id      String
+  service         Service      @relation(fields: [service_id], references: [id])
+  pricing_rule_id String?
+  pricingRule     PricingRule? @relation(fields: [pricing_rule_id], references: [id])
 
-  scheduled_date       DateTime
-  slot                 String?       
+  scheduled_date DateTime
+  slot           String?
 
-  customer_name        String?
-  customer_phone       String
-  customer_email       String?
-  
-  address_line_1       String
-  address_line_2       String?
-  area                 String?
-  landmark             String?
-  city_name            String
-  postal_code          String
-  state                String
-  country              String        @default("India")
-  latitude             Float?        
-  longitude            Float?
-  
-  service_name         String
+  customer_name  String?
+  customer_phone String
+  customer_email String?
+
+  address_line_1 String
+  address_line_2 String?
+  area           String?
+  landmark       String?
+  city_name      String
+  postal_code    String
+  state          String
+  country        String  @default("India")
+  latitude       Float?
+  longitude      Float?
+
+  service_name               String
   estimated_duration_minutes Int?
 
-  base_price           Decimal       @db.Decimal(10,2)
-  discount             Decimal       @default(0) @db.Decimal(10,2)
-  tax                  Decimal       @default(0) @db.Decimal(10,2)
-  final_amount         Decimal       @db.Decimal(10,2)
-  pricing_snapshot_json Json?        
-  pricing_rule_name    String?
-  pricing_version      String?
+  base_price            Decimal @db.Decimal(10, 2)
+  discount              Decimal @default(0) @db.Decimal(10, 2)
+  tax                   Decimal @default(0) @db.Decimal(10, 2)
+  final_amount          Decimal @db.Decimal(10, 2)
+  pricing_snapshot_json Json?
+  pricing_rule_name     String?
+  pricing_version       String?
 
-  status               BookingStatus @default(Pending)
-  
-  notes                String?       
-  special_instructions String?       
+  status BookingStatus @default(Pending)
+
+  notes                String?
+  special_instructions String?
   cancel_reason        String?
 
-  assigned_user_id     String?
-  assignedUser         User?         @relation("AssignedBookings", fields: [assigned_user_id], references: [id])
-  
-  created_by           String
-  updated_by           String?
-  created_at           DateTime      @default(now())
-  updated_at           DateTime      @updatedAt
+  assigned_user_id String?
+  assignedUser     User?   @relation("AssignedBookings", fields: [assigned_user_id], references: [id])
 
-  confirmed_at         DateTime?
-  scheduled_at         DateTime?
-  assigned_at          DateTime?
-  started_at           DateTime?
-  completed_at         DateTime?
-  cancelled_at         DateTime?
+  created_by String
+  updated_by String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  history              BookingHistory[]
-  job                  Job?
+  confirmed_at DateTime?
+  scheduled_at DateTime?
+  assigned_at  DateTime?
+  started_at   DateTime?
+  completed_at DateTime?
+  cancelled_at DateTime?
+
+  history BookingHistory[]
+  job     Job?
 
   @@index([booking_id])
   @@index([status])
@@ -259,13 +259,13 @@ model Booking {
 }
 
 model BookingHistory {
-  id           String        @id @default(uuid())
-  booking_id   String
-  booking      Booking       @relation(fields: [booking_id], references: [id])
-  from_status  BookingStatus?
-  to_status    BookingStatus
-  changed_by   String
-  changed_at   DateTime      @default(now())
+  id          String         @id @default(uuid())
+  booking_id  String
+  booking     Booking        @relation(fields: [booking_id], references: [id])
+  from_status BookingStatus?
+  to_status   BookingStatus
+  changed_by  String
+  changed_at  DateTime       @default(now())
 }
 
 model BookingSequence {
@@ -323,44 +323,44 @@ enum MediaCategory {
 }
 
 model Job {
-  id                         String    @id @default(uuid())
-  job_id                     String    @unique 
-  booking_id                 String    @unique
-  booking                    Booking   @relation(fields: [booking_id], references: [id])
-  
-  assigned_user_id           String?
-  assignedUser               User?     @relation("AssignedJobs", fields: [assigned_user_id], references: [id])
-  
-  status                     JobStatus @default(Pending)
-  priority                   JobPriority @default(Normal)
-  
+  id         String  @id @default(uuid())
+  job_id     String  @unique
+  booking_id String  @unique
+  booking    Booking @relation(fields: [booking_id], references: [id])
+
+  assigned_user_id String?
+  assignedUser     User?   @relation("AssignedJobs", fields: [assigned_user_id], references: [id])
+
+  status   JobStatus   @default(Pending)
+  priority JobPriority @default(Normal)
+
   scheduled_start            DateTime
   scheduled_end              DateTime?
   actual_start               DateTime?
   actual_end                 DateTime?
   estimated_duration_minutes Int?
 
-  completion_notes           String?
-  internal_notes             String?
-  cancellation_reason        String?
-  failure_reason             JobFailureReason?
-  
-  signature_url              String?
-  signed_by_name             String?
-  signed_at                  DateTime?
-  
-  latitude                   Float?
-  longitude                  Float?
+  completion_notes    String?
+  internal_notes      String?
+  cancellation_reason String?
+  failure_reason      JobFailureReason?
 
-  created_by                 String
-  updated_by                 String?
-  created_at                 DateTime  @default(now())
-  updated_at                 DateTime  @updatedAt
+  signature_url  String?
+  signed_by_name String?
+  signed_at      DateTime?
 
-  history                    JobHistory[]
-  assignment_history         JobAssignmentHistory[]
-  media                      JobMedia[]
-  
+  latitude  Float?
+  longitude Float?
+
+  created_by String
+  updated_by String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  history            JobHistory[]
+  assignment_history JobAssignmentHistory[]
+  media              JobMedia[]
+
   @@index([job_id])
   @@index([status])
   @@index([assigned_user_id])
@@ -368,36 +368,144 @@ model Job {
 }
 
 model JobMedia {
-  id           String        @id @default(uuid())
-  job_id       String
-  job          Job           @relation(fields: [job_id], references: [id], onDelete: Cascade)
-  type         MediaType     @default(Image)
-  category     MediaCategory @default(Other)
-  url          String
-  uploaded_by  String
-  uploaded_at  DateTime      @default(now())
+  id          String        @id @default(uuid())
+  job_id      String
+  job         Job           @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  type        MediaType     @default(Image)
+  category    MediaCategory @default(Other)
+  url         String
+  uploaded_by String
+  uploaded_at DateTime      @default(now())
 }
 
 model JobHistory {
-  id               String    @id @default(uuid())
-  job_id           String
-  job              Job       @relation(fields: [job_id], references: [id], onDelete: Cascade)
-  from_status      JobStatus?
-  to_status        JobStatus
-  changed_by       String
-  changed_by_role  String?
-  ip_address       String?
-  changed_at       DateTime  @default(now())
-  note             String?
+  id              String     @id @default(uuid())
+  job_id          String
+  job             Job        @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  from_status     JobStatus?
+  to_status       JobStatus
+  changed_by      String
+  changed_by_role String?
+  ip_address      String?
+  changed_at      DateTime   @default(now())
+  note            String?
 }
 
 model JobAssignmentHistory {
-  id                 String    @id @default(uuid())
-  job_id             String
-  job                Job       @relation(fields: [job_id], references: [id], onDelete: Cascade)
-  previous_user_id   String?
-  new_user_id        String?
-  assigned_by        String
-  assigned_at        DateTime  @default(now())
-  reason             String?
+  id               String   @id @default(uuid())
+  job_id           String
+  job              Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  previous_user_id String?
+  new_user_id      String?
+  assigned_by      String
+  assigned_at      DateTime @default(now())
+  reason           String?
+}
+
+enum InvoiceStatus {
+  Draft
+  Issued
+  Cancelled
+}
+
+enum PaymentStatus {
+  Unpaid
+  Partial
+  Paid
+}
+
+model InvoiceSequence {
+  id    Int @id @default(1)
+  value Int @default(1)
+}
+
+model Invoice {
+  id              String @id @default(uuid())
+  invoice_number  String @unique
+  sequence_number Int    @unique
+
+  booking_id    String  @unique
+  city_id       String
+  technician_id String?
+
+  issue_date DateTime
+  due_date   DateTime
+
+  // Snapshots
+  customer_name   String?
+  customer_phone  String
+  billing_address String
+  service_name    String
+
+  // Financials
+  base_amount     Decimal @db.Decimal(10, 2)
+  discount_amount Decimal @default(0) @db.Decimal(10, 2)
+
+  // Taxes
+  cgst_percent Decimal @default(0) @db.Decimal(5, 2)
+  cgst_amount  Decimal @default(0) @db.Decimal(10, 2)
+  sgst_percent Decimal @default(0) @db.Decimal(5, 2)
+  sgst_amount  Decimal @default(0) @db.Decimal(10, 2)
+  igst_percent Decimal @default(0) @db.Decimal(5, 2)
+  igst_amount  Decimal @default(0) @db.Decimal(10, 2)
+
+  total_tax_amount Decimal @default(0) @db.Decimal(10, 2)
+  final_amount     Decimal @db.Decimal(10, 2)
+
+  pricing_snapshot_json Json?
+
+  // State
+  status InvoiceStatus @default(Draft)
+
+  // Payments
+  payment_status PaymentStatus @default(Unpaid)
+  amount_paid    Decimal       @default(0) @db.Decimal(10, 2)
+  balance_due    Decimal       @db.Decimal(10, 2)
+
+  // Audit
+  created_by String
+  updated_by String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  items   InvoiceItem[]
+  history InvoiceHistory[]
+
+  @@index([status])
+  @@index([payment_status])
+  @@index([customer_phone])
+  @@index([city_id])
+}
+
+model InvoiceItem {
+  id         String  @id @default(uuid())
+  invoice_id String
+  invoice    Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  service_name    String
+  quantity        Int     @default(1)
+  unit_price      Decimal @db.Decimal(10, 2)
+  discount_amount Decimal @default(0) @db.Decimal(10, 2)
+
+  cgst_amount Decimal @default(0) @db.Decimal(10, 2)
+  sgst_amount Decimal @default(0) @db.Decimal(10, 2)
+  igst_amount Decimal @default(0) @db.Decimal(10, 2)
+
+  line_total Decimal @db.Decimal(10, 2)
+}
+
+model InvoiceHistory {
+  id         String  @id @default(uuid())
+  invoice_id String
+  invoice    Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  action      String
+  from_status InvoiceStatus?
+  to_status   InvoiceStatus
+
+  changed_by      String
+  changed_by_role String?
+
+  reason     String?
+  changed_at DateTime @default(now())
 }

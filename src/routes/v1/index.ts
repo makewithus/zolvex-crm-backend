@@ -11,6 +11,7 @@ import bookingRoutes from './booking.routes';
 import jobRoutes from './job.routes';
 import lostReasonRoutes from './lostReason.routes';
 import dashboardRoutes from './dashboard.routes';
+import invoiceRoutes from './invoice.routes';
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.use('/bookings', bookingRoutes);
 router.use('/jobs', jobRoutes);
 router.use('/leads', leadRoutes);
 router.use('/customers', customerRoutes);
+router.use('/invoices', invoiceRoutes);
 router.use('/lost-reasons', lostReasonRoutes);
 router.use('/dashboard', dashboardRoutes);
 

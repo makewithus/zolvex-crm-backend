@@ -1,5 +1,6 @@
 import { PrismaClient, JobStatus, Prisma, JobPriority, JobFailureReason } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+import * as invoiceService from './invoice.service';
 
 const prisma = new PrismaClient();
 
@@ -83,7 +84,7 @@ export const transitionJobStatus = async (
     versionToken?: string;
   }
 ) => {
-  return await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const job = await tx.job.findUnique({ where: { id: jobId }, include: { booking: true } });
     if (!job) throw new AppError('Job not found', 404);
 
@@ -193,6 +194,22 @@ export const transitionJobStatus = async (
 
     return updatedJob;
   });
+  
+  // Post-Transaction Triggers
+  if (newStatus === 'Completed') {
+    // Generate Invoice automatically unless configured for MANUAL mode
+    const mode = process.env.INVOICE_GENERATION_MODE || 'AUTO';
+    if (mode === 'AUTO') {
+      try {
+        await invoiceService.generateInvoiceFromBooking(result.booking_id, userId);
+      } catch (error) {
+        console.error(`Failed to auto-generate invoice for booking ${result.booking_id}:`, error);
+        // Do not block job completion if invoice fails
+      }
+    }
+  }
+
+  return result;
 };
 
 export const getJobs = async (filters: any) => {
