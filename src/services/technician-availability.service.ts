@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+import { startOfDay, addDays, getHours } from 'date-fns';
 
 const prisma = new PrismaClient();
 
@@ -25,8 +26,9 @@ export const checkAvailability = async (
   }
 
   // 2. Working Hours (Simple check: 08:00 - 20:00)
-  const startHour = startTime.getHours();
-  const endHour = new Date(startTime.getTime() + durationMinutes * 60000).getHours();
+  const startHour = getHours(startTime);
+  const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+  const endHour = getHours(endTime);
   
   if (startHour < 8 || endHour > 20) {
     // In the future this can be a soft warning, but for now we just log it as part of availability
@@ -34,7 +36,6 @@ export const checkAvailability = async (
   }
 
   // 3. Overlapping Jobs
-  const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
   const overlappingJobs = await prisma.job.findMany({
     where: {
       assigned_user_id: userId,
@@ -55,15 +56,13 @@ export const checkAvailability = async (
 
   // 4. Staff Availability / Leaves / Workload (Phase 5 Extension)
   // Check the StaffAvailability table for holidays or capacity limits
-  const startOfDay = new Date(startTime);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
+  const localStartOfDay = startOfDay(startTime);
+  const localEndOfDay = addDays(localStartOfDay, 1);
 
   const availabilityRecord = await prisma.staffAvailability.findFirst({
     where: {
       staff_id: userId,
-      date: { gte: startOfDay, lt: endOfDay }
+      date: { gte: localStartOfDay, lt: localEndOfDay }
     }
   });
 
