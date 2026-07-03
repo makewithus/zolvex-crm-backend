@@ -10,6 +10,7 @@ const router = Router();
 router.use(protect);
 
 router.get('/', authorize('Super Admin', 'City Manager', 'Support Agent', 'Finance', 'Field Staff'), jobController.getJobs);
+router.get('/calendar', authorize('Super Admin', 'City Manager', 'Support Agent'), jobController.getCalendarJobs);
 router.get('/:id', authorize('Super Admin', 'City Manager', 'Support Agent', 'Finance', 'Field Staff'), jobController.getJobById);
 
 router.post('/from-booking/:bookingId', authorize('Super Admin', 'City Manager', 'Support Agent'), validateRequest(jobValidation.createJobFromBookingSchema), jobController.createJobFromBooking);

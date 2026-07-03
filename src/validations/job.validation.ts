@@ -19,17 +19,21 @@ export const updateJobStatusSchema = z.object({
     ]).optional(),
     cancellationReason: z.string().optional(),
     completionNotes: z.string().optional(),
+    version_token: z.string().optional(),
   })
 });
 
 export const assignJobSchema = z.object({
   body: z.object({
     assigned_user_id: z.string().uuid(),
+    version_token: z.string().optional(),
+    override_conflict: z.boolean().optional(),
   })
 });
 
 export const rescheduleJobSchema = z.object({
   body: z.object({
     new_scheduled_start: z.string().datetime(),
+    version_token: z.string().optional(),
   })
 });

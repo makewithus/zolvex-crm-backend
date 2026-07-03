@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import * as jobService from './job.service';
+import { checkAvailability } from './technician-availability.service';
 
 const prisma = new PrismaClient();
 
@@ -13,6 +14,8 @@ export const assignTechnician = async (
   jobId: string,
   userId: string, // the new technician to assign
   assignedByUserId: string,
+  versionToken?: string,
+  overrideConflict?: boolean,
   tx?: Prisma.TransactionClient
 ) => {
   const db = tx || prisma;
@@ -20,35 +23,22 @@ export const assignTechnician = async (
   const job = await db.job.findUnique({ where: { id: jobId }, include: { booking: true } });
   if (!job) throw new AppError('Job not found', 404);
 
-  const technician = await db.user.findUnique({ where: { id: userId } });
-  if (!technician || !technician.is_active) throw new AppError('Technician not found or inactive', 400);
-
-  // 1. Validate City match
-  if (technician.city_id !== job.booking.city_id) {
-    throw new AppError('Technician is not assigned to this city', 400);
+  // Optimistic Concurrency Control (OCC)
+  if (versionToken && job.updated_at.toISOString() !== versionToken) {
+    throw new AppError('This job was updated by another dispatcher. Please refresh.', 409);
   }
 
-  // 2. Validate Overlap
+  // 1. Validate Overlap and City via new Service
   const jobDurationMinutes = job.estimated_duration_minutes || 60;
-  const newJobEnd = new Date(job.scheduled_start.getTime() + jobDurationMinutes * 60000);
-
-  const overlappingJobs = await db.job.findMany({
-    where: {
-      assigned_user_id: userId,
-      status: { in: ['Assigned', 'Accepted', 'Travelling', 'Arrived', 'Started'] },
-      id: { not: jobId },
-      scheduled_start: { lt: newJobEnd },
-    }
-  });
   
-  // We need to check if the end of overlapping jobs > start of this job
-  const hasOverlap = overlappingJobs.some(existingJob => {
-    const existingEnd = new Date(existingJob.scheduled_start.getTime() + (existingJob.estimated_duration_minutes || 60) * 60000);
-    return existingEnd > job.scheduled_start;
-  });
-
-  if (hasOverlap) {
-    throw new AppError('Technician has an overlapping job during this time slot', 409);
+  const availability = await checkAvailability(userId, job.booking.city_id, job.scheduled_start, jobDurationMinutes, jobId);
+  
+  if (!availability.available) {
+    if (availability.conflict && overrideConflict) {
+      // Allow if explicitly overridden (Super Admin checking happens at controller or via RBAC wrapper)
+    } else {
+      throw new AppError(availability.reason || 'Technician unavailable', 409);
+    }
   }
 
   // 3. Update Job and Log History
@@ -69,7 +59,7 @@ export const assignTechnician = async (
       previous_user_id: previousUserId,
       new_user_id: userId,
       assigned_by: assignedByUserId,
-      reason: previousUserId ? 'Reassignment' : 'Initial Assignment'
+      reason: overrideConflict ? 'Reassignment (Conflict Overridden)' : (previousUserId ? 'Reassignment' : 'Initial Assignment')
     }
   });
 
@@ -104,11 +94,17 @@ export const rescheduleJob = async (
   jobId: string,
   newScheduledStart: string,
   rescheduledByUserId: string,
+  versionToken?: string,
   tx?: Prisma.TransactionClient
 ) => {
   const db = tx || prisma;
   const job = await db.job.findUnique({ where: { id: jobId }, include: { booking: true } });
   if (!job) throw new AppError('Job not found', 404);
+
+  // Optimistic Concurrency Control (OCC)
+  if (versionToken && job.updated_at.toISOString() !== versionToken) {
+    throw new AppError('This job was updated by another dispatcher. Please refresh.', 409);
+  }
 
   const previousUserId = job.assigned_user_id;
   

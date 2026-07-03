@@ -80,11 +80,16 @@ export const transitionJobStatus = async (
     failureReason?: JobFailureReason;
     cancellationReason?: string;
     completionNotes?: string;
+    versionToken?: string;
   }
 ) => {
   return await prisma.$transaction(async (tx) => {
     const job = await tx.job.findUnique({ where: { id: jobId }, include: { booking: true } });
     if (!job) throw new AppError('Job not found', 404);
+
+    if (options?.versionToken && job.updated_at.toISOString() !== options.versionToken) {
+      throw new AppError('This job was updated by another dispatcher. Please refresh.', 409);
+    }
 
     const currentStatus = job.status;
     if (currentStatus === newStatus) return job; // No-op
@@ -187,6 +192,28 @@ export const getJobs = async (filters: any) => {
   return await prisma.job.findMany({
     where,
     include: { booking: { include: { customer: true, city: true, service: true } }, assignedUser: { select: { id: true, name: true } } },
+    orderBy: { scheduled_start: 'asc' }
+  });
+};
+
+export const getJobsByDateRange = async (startDate: string, endDate: string, filters: any) => {
+  const where: any = {
+    scheduled_start: {
+      gte: new Date(startDate),
+      lte: new Date(endDate)
+    }
+  };
+
+  if (filters.status) where.status = filters.status;
+  if (filters.assigned_user_id) where.assigned_user_id = filters.assigned_user_id;
+  if (filters.city_id) where.booking = { city_id: filters.city_id };
+
+  return await prisma.job.findMany({
+    where,
+    include: { 
+      booking: { include: { customer: true, city: true, service: true } }, 
+      assignedUser: { select: { id: true, name: true } } 
+    },
     orderBy: { scheduled_start: 'asc' }
   });
 };
