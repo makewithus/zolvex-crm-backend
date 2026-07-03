@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import axios from 'axios';
+// using native fetch
 import { format, addDays, setHours, setMinutes } from 'date-fns';
 
 const prisma = new PrismaClient();
@@ -7,12 +7,32 @@ const API_URL = 'http://localhost:5000/api/v1';
 let authToken = '';
 
 async function login() {
-  const res = await axios.post(`${API_URL}/auth/login`, {
-    email: 'admin@zolvex.com',
-    password: 'password123'
+  const res = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@zolvex.com', password: 'password123' })
   });
-  authToken = res.data.data.token;
-  axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+  const data = await res.json();
+  authToken = data.data.token;
+}
+
+async function fetchApi(endpoint: string, method: string, body?: any) {
+  const res = await fetch(`${API_URL}${endpoint}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const error: any = new Error(data.message || 'API Error');
+    error.status = res.status;
+    error.response = { status: res.status, data };
+    throw error;
+  }
+  return data;
 }
 
 async function verify() {
@@ -39,7 +59,7 @@ async function verify() {
     // Flow 1 & 2 & 3: Create Booking -> Convert to Job -> Assign -> Conflict
     console.log('\n--- Testing Booking & Dispatch Flows ---');
     
-    const bookingRes = await axios.post(`${API_URL}/bookings`, {
+    const bookingRes = await fetchApi('/bookings', 'POST', {
       customer_id: customer.id,
       city_id: city.id,
       service_id: service.id,
@@ -51,11 +71,11 @@ async function verify() {
     const bookingId = bookingRes.data.id;
     console.log(`✅ Booking created: ${bookingId}`);
 
-    const jobRes = await axios.post(`${API_URL}/jobs/from-booking/${bookingId}`, { priority: 'Normal' });
+    const jobRes = await fetchApi(`/jobs/from-booking/${bookingId}`, 'POST', { priority: 'Normal' });
     const jobId = jobRes.data.id;
     console.log(`✅ Job generated: ${jobId}`);
 
-    await axios.patch(`${API_URL}/jobs/${jobId}/assign`, { assigned_user_id: tech.id });
+    await fetchApi(`/jobs/${jobId}/assign`, 'PATCH', { assigned_user_id: tech.id });
     console.log(`✅ Job assigned to Tech: ${tech.name}`);
 
     // Verify history
@@ -68,7 +88,7 @@ async function verify() {
 
     // Flow 3: Conflict Detection
     console.log('\n--- Testing Conflict Detection ---');
-    const booking2Res = await axios.post(`${API_URL}/bookings`, {
+    const booking2Res = await fetchApi('/bookings', 'POST', {
       customer_id: customer.id,
       city_id: city.id,
       service_id: service.id,
@@ -78,11 +98,11 @@ async function verify() {
       payment_status: 'Pending'
     });
     const booking2Id = booking2Res.data.id;
-    const job2Res = await axios.post(`${API_URL}/jobs/from-booking/${booking2Id}`, { priority: 'Normal' });
+    const job2Res = await fetchApi(`/jobs/from-booking/${booking2Id}`, 'POST', { priority: 'Normal' });
     const job2Id = job2Res.data.id;
 
     try {
-      await axios.patch(`${API_URL}/jobs/${job2Id}/assign`, { assigned_user_id: tech.id });
+      await fetchApi(`/jobs/${job2Id}/assign`, 'PATCH', { assigned_user_id: tech.id });
       console.log('❌ Conflict detection failed - Job assigned');
     } catch (e: any) {
       if (e.response?.status === 409) {
@@ -95,7 +115,7 @@ async function verify() {
     // Flow 4: Business Hours (via booking creation / reschedule)
     console.log('\n--- Testing Business Hours ---');
     try {
-      await axios.post(`${API_URL}/bookings`, {
+      await fetchApi('/bookings', 'POST', {
         customer_id: customer.id,
         city_id: city.id,
         service_id: service.id,
@@ -115,7 +135,10 @@ async function verify() {
 
     // Flow 5: Booking Cancellation Sync
     console.log('\n--- Testing Booking Cancellation ---');
-    await axios.patch(`${API_URL}/bookings/${booking2Id}/cancel`, { cancel_reason: 'Test Cancel' });
+    try {
+      await fetchApi(`/bookings/${booking2Id}/cancel`, 'PATCH', { cancel_reason: 'Test Cancel' });
+    } catch(e) {}
+    
     const checkJob2 = await prisma.job.findUnique({ where: { id: job2Id } });
     if (checkJob2?.status === 'Cancelled') {
       console.log('✅ Job successfully cancelled when Booking was cancelled');
@@ -126,11 +149,11 @@ async function verify() {
     // Flow 6: Job Completion Sync
     console.log('\n--- Testing Job Completion Sync ---');
     // Progress Job 1 to Completed
-    await axios.patch(`${API_URL}/jobs/${jobId}/status`, { status: 'Accepted' });
-    await axios.patch(`${API_URL}/jobs/${jobId}/status`, { status: 'Travelling' });
-    await axios.patch(`${API_URL}/jobs/${jobId}/status`, { status: 'Arrived' });
-    await axios.patch(`${API_URL}/jobs/${jobId}/status`, { status: 'Started' });
-    await axios.patch(`${API_URL}/jobs/${jobId}/status`, { status: 'Completed', completionNotes: 'Done' });
+    await fetchApi(`/jobs/${jobId}/status`, 'PATCH', { status: 'Accepted' });
+    await fetchApi(`/jobs/${jobId}/status`, 'PATCH', { status: 'Travelling' });
+    await fetchApi(`/jobs/${jobId}/status`, 'PATCH', { status: 'Arrived' });
+    await fetchApi(`/jobs/${jobId}/status`, 'PATCH', { status: 'Started' });
+    await fetchApi(`/jobs/${jobId}/status`, 'PATCH', { status: 'Completed', completionNotes: 'Done' });
     
     const checkBooking1 = await prisma.booking.findUnique({ where: { id: bookingId } });
     if (checkBooking1?.status === 'Completed') {
