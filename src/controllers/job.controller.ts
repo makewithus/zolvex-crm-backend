@@ -86,10 +86,9 @@ export const getCalendarJobs = async (req: Request, res: Response) => {
   const jobs = await jobService.getJobsByDateRange(start_date as string, end_date as string, filters);
 
   // Compute KPIs
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Compute KPIs for the selected date
+  const targetDate = new Date(start_date as string);
+  const nextDate = new Date(end_date as string);
 
   const kpis = {
     total_today: 0,
@@ -104,9 +103,9 @@ export const getCalendarJobs = async (req: Request, res: Response) => {
 
   jobs.forEach(job => {
     const jobDate = new Date(job.scheduled_start);
-    const isToday = jobDate >= today && jobDate < tomorrow;
+    const isTargetDay = jobDate >= targetDate && jobDate <= nextDate;
     
-    if (isToday) {
+    if (isTargetDay) {
       kpis.total_today++;
       if (!job.assigned_user_id) kpis.unassigned++;
       if (['Travelling', 'Arrived', 'Started'].includes(job.status)) kpis.running++;
