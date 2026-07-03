@@ -105,16 +105,22 @@ export const transitionJobStatus = async (
       throw new AppError(`Cannot transition from terminal state ${currentStatus}`, 400);
     }
     
-    // Field Staff state progression validation
+    // BUG-H FIX: Field Staff cannot cancel or reschedule — Dispatcher-only actions
+    const DISPATCHER_ONLY_STATUSES: JobStatus[] = ['Cancelled', 'Rescheduled'];
+    if (userRole === 'Field Staff' && DISPATCHER_ONLY_STATUSES.includes(newStatus)) {
+      throw new AppError(
+        'Field staff cannot cancel or reschedule a job. Report the issue (NoAccess, CustomerNotAvailable, Failed) and contact your dispatcher.',
+        403
+      );
+    }
+
+    // Field Staff forward-only progression validation
     const fieldProgression = ['Assigned', 'Accepted', 'Travelling', 'Arrived', 'Started', 'Completed'];
     if (userRole === 'Field Staff') {
       const currentIndex = fieldProgression.indexOf(currentStatus);
       const newIndex = fieldProgression.indexOf(newStatus);
-      
-      if (newIndex !== -1 && currentIndex !== -1) {
-         if (newIndex < currentIndex) {
-            throw new AppError(`Invalid forward progression: ${currentStatus} -> ${newStatus}`, 400);
-         }
+      if (newIndex !== -1 && currentIndex !== -1 && newIndex < currentIndex) {
+        throw new AppError(`Field staff cannot reverse job progression: ${currentStatus} -> ${newStatus}`, 400);
       }
     }
 
@@ -191,7 +197,12 @@ export const transitionJobStatus = async (
 
 export const getJobs = async (filters: any) => {
   const where: any = {};
-  if (filters.status) where.status = filters.status;
+  // BUG-D FIX: Handle array of statuses using Prisma `in` operator
+  if (filters.status) {
+    where.status = Array.isArray(filters.status)
+      ? { in: filters.status }
+      : filters.status;
+  }
   if (filters.priority) where.priority = filters.priority;
   if (filters.assigned_user_id) where.assigned_user_id = filters.assigned_user_id;
   

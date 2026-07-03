@@ -12,6 +12,16 @@ export const getAllUsers = async (roleName: string, cityId?: string) => {
   });
 };
 
+export const getUserById = async (id: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, phone: true, is_active: true, joining_date: true, skill_tags: true, city_id: true, role: { select: { name: true } }, city: true }
+  });
+  if (!user) throw new AppError('User not found', 404);
+  if (!user.is_active) throw new AppError('Account has been deactivated', 401);
+  return user;
+};
+
 export const createUser = async (userData: any, passwordRaw: string) => {
   const password_hash = await bcrypt.hash(passwordRaw, 10);
   return prisma.user.create({

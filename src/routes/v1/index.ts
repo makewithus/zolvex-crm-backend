@@ -10,6 +10,7 @@ import customerRoutes from './customer.routes';
 import bookingRoutes from './booking.routes';
 import jobRoutes from './job.routes';
 import lostReasonRoutes from './lostReason.routes';
+import dashboardRoutes from './dashboard.routes';
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/jobs', jobRoutes);
 router.use('/leads', leadRoutes);
 router.use('/customers', customerRoutes);
 router.use('/lost-reasons', lostReasonRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 export default router;
