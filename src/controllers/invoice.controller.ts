@@ -70,3 +70,26 @@ export const getCustomerInvoices = async (req: Request, res: Response, next: Nex
     next(error);
   }
 };
+
+export const generatePdf = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const invoice = await invoiceService.getInvoiceById(req.params.id as string);
+    // Simple PDF generation logic using PDFKit
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument();
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoice.invoice_number}.pdf`);
+    
+    doc.pipe(res);
+    
+    doc.fontSize(25).text(`Invoice ${invoice.invoice_number}`, 100, 100);
+    doc.fontSize(12).text(`Status: ${invoice.status}`, 100, 150);
+    doc.text(`Customer: ${invoice.customer_name}`, 100, 170);
+    doc.text(`Total: ₹${invoice.final_amount}`, 100, 190);
+    
+    doc.end();
+  } catch (error) {
+    next(error);
+  }
+};

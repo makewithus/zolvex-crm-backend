@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/pdfkit": "^0.17.6",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "date-fns": "^4.4.0",
@@ -22,6 +23,7 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
+    "pdfkit": "^0.19.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
