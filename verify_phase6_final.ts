@@ -78,14 +78,21 @@ async function runVerification() {
 
     // ACT: Dispatch -> Job -> Complete
     console.log('\n[Gate 3] E2E Regression: Dispatch -> Complete -> Invoice Generation');
+    const seq = await prisma.jobSequence.update({
+      where: { id: 1 },
+      data: { value: { increment: 1 } }
+    });
+    const job_id = `JOB-${seq.value.toString().padStart(6, '0')}`;
+
     const job = await prisma.job.create({
       data: {
+        job_id,
         booking_id: booking.id,
         assigned_user_id: user.id,
         status: 'Completed', // Simulating completion immediately for test
-        scheduled_date: tomorrow,
-        slot: '10:00',
-        city_id: city.id
+        scheduled_start: tomorrow,
+        scheduled_end: tomorrow,
+        created_by: user.id
       }
     });
     testJobId = job.id;

@@ -74,6 +74,12 @@ export const getCustomerInvoices = async (req: Request, res: Response, next: Nex
 export const generatePdf = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoice = await invoiceService.getInvoiceById(req.params.id as string);
+    
+    // Fetch booking manually because no relation exists
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    const booking = await prisma.booking.findUnique({ where: { id: invoice.booking_id } });
+
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -111,8 +117,7 @@ export const generatePdf = async (req: Request, res: Response, next: NextFunctio
     
     // Booking / Job Details
     doc.font('Helvetica-Bold').text('REFERENCE:', 350, 170, { align: 'right' });
-    // @ts-ignore
-    doc.font('Helvetica').text(`Booking ID: ${invoice.booking?.booking_id || 'N/A'}`, 350, 185, { align: 'right' });
+    doc.font('Helvetica').text(`Booking ID: ${booking?.booking_id || 'N/A'}`, 350, 185, { align: 'right' });
     if (invoice.technician_id) {
        doc.text(`Job Tech ID: ${invoice.technician_id}`, 350, 200, { align: 'right' });
     }

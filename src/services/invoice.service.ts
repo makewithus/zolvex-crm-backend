@@ -203,7 +203,6 @@ export const getInvoiceById = async (id: string) => {
     where: { id },
     include: {
       items: true,
-      booking: { select: { booking_id: true } },
       history: { orderBy: { changed_at: 'desc' } }
     }
   });
