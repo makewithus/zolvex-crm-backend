@@ -26,5 +26,6 @@ router.get(
 );
 
 router.get('/:id', paymentController.getPaymentById);
+router.get('/:id/pdf', paymentController.downloadReceipt);
 
 export default router;
