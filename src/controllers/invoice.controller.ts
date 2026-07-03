@@ -74,19 +74,129 @@ export const getCustomerInvoices = async (req: Request, res: Response, next: Nex
 export const generatePdf = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoice = await invoiceService.getInvoiceById(req.params.id as string);
-    // Simple PDF generation logic using PDFKit
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const PDFDocument = require('pdfkit');
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoice.invoice_number}.pdf`);
     
     doc.pipe(res);
     
-    doc.fontSize(25).text(`Invoice ${invoice.invoice_number}`, 100, 100);
-    doc.fontSize(12).text(`Status: ${invoice.status}`, 100, 150);
-    doc.text(`Customer: ${invoice.customer_name}`, 100, 170);
-    doc.text(`Total: ₹${invoice.final_amount}`, 100, 190);
+    // Header
+    doc.fontSize(20).font('Helvetica-Bold').text('ZOLVEX', 50, 45);
+    doc.fontSize(10).font('Helvetica').text('Zolvex Services Pvt. Ltd.', 50, 70);
+    doc.text('GSTIN: 27AABCZ1234D1Z5', 50, 85);
+    doc.text('123 Tech Park, Cyber City', 50, 100);
+    doc.text('Email: support@zolvex.com | Phone: +91 9999999999', 50, 115);
+    
+    // INVOICE text on right
+    doc.fontSize(24).font('Helvetica-Bold').fillColor('#333333').text('INVOICE', 400, 45, { align: 'right' });
+    
+    // Invoice Meta
+    doc.fontSize(10).font('Helvetica').fillColor('#000000');
+    doc.text(`Invoice Number: ${invoice.invoice_number}`, 350, 85, { align: 'right' });
+    doc.text(`Status: ${invoice.status}`, 350, 100, { align: 'right' });
+    doc.text(`Issue Date: ${new Date(invoice.issue_date).toLocaleDateString()}`, 350, 115, { align: 'right' });
+    doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString()}`, 350, 130, { align: 'right' });
+    
+    // Divider
+    doc.moveTo(50, 150).lineTo(545, 150).strokeColor('#e5e7eb').lineWidth(1).stroke();
+    
+    // Bill To
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#000000').text('BILL TO:', 50, 170);
+    doc.font('Helvetica').text(invoice.customer_name || 'Customer Name', 50, 185);
+    doc.text(`Phone: ${invoice.customer_phone}`, 50, 200);
+    doc.text(`Address: ${invoice.billing_address || 'N/A'}`, 50, 215, { width: 250 });
+    
+    // Booking / Job Details
+    doc.font('Helvetica-Bold').text('REFERENCE:', 350, 170, { align: 'right' });
+    // @ts-ignore
+    doc.font('Helvetica').text(`Booking ID: ${invoice.booking?.booking_id || 'N/A'}`, 350, 185, { align: 'right' });
+    if (invoice.technician_id) {
+       doc.text(`Job Tech ID: ${invoice.technician_id}`, 350, 200, { align: 'right' });
+    }
+    
+    // Table Header
+    const tableTop = 270;
+    doc.rect(50, tableTop, 495, 25).fillColor('#f9fafb').fill();
+    doc.fillColor('#374151').font('Helvetica-Bold').fontSize(10);
+    doc.text('Service', 60, tableTop + 8);
+    doc.text('Qty', 280, tableTop + 8);
+    doc.text('Unit Price', 320, tableTop + 8, { width: 70, align: 'right' });
+    doc.text('Total', 450, tableTop + 8, { width: 85, align: 'right' });
+    
+    // Table Rows
+    let y = tableTop + 35;
+    doc.fillColor('#000000').font('Helvetica');
+    if (invoice.items && invoice.items.length > 0) {
+      invoice.items.forEach(item => {
+        doc.text(item.service_name, 60, y, { width: 210 });
+        doc.text(item.quantity.toString(), 280, y);
+        doc.text(`Rs. ${Number(item.unit_price).toFixed(2)}`, 320, y, { width: 70, align: 'right' });
+        doc.text(`Rs. ${Number(item.line_total).toFixed(2)}`, 450, y, { width: 85, align: 'right' });
+        y += 25;
+      });
+    }
+    
+    doc.moveTo(50, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();
+    
+    // Summary
+    const summaryX = 350;
+    y += 15;
+    doc.text('Subtotal:', summaryX, y);
+    doc.text(`Rs. ${Number(invoice.base_amount).toFixed(2)}`, 450, y, { align: 'right' });
+    y += 20;
+    
+    if (Number(invoice.discount_amount) > 0) {
+      doc.text('Discount:', summaryX, y);
+      doc.text(`- Rs. ${Number(invoice.discount_amount).toFixed(2)}`, 450, y, { align: 'right' });
+      y += 20;
+    }
+    
+    doc.text(`CGST (${Number(invoice.cgst_percent)}%):`, summaryX, y);
+    doc.text(`Rs. ${Number(invoice.cgst_amount).toFixed(2)}`, 450, y, { align: 'right' });
+    y += 20;
+    
+    doc.text(`SGST (${Number(invoice.sgst_percent)}%):`, summaryX, y);
+    doc.text(`Rs. ${Number(invoice.sgst_amount).toFixed(2)}`, 450, y, { align: 'right' });
+    y += 20;
+    
+    if (Number(invoice.igst_percent) > 0) {
+      doc.text(`IGST (${Number(invoice.igst_percent)}%):`, summaryX, y);
+      doc.text(`Rs. ${Number(invoice.igst_amount).toFixed(2)}`, 450, y, { align: 'right' });
+      y += 20;
+    }
+    
+    // Grand Total
+    doc.moveTo(summaryX, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();
+    y += 10;
+    doc.font('Helvetica-Bold').fontSize(12);
+    doc.text('Grand Total:', summaryX, y);
+    doc.text(`Rs. ${Number(invoice.final_amount).toFixed(2)}`, 450, y, { align: 'right' });
+    
+    y += 25;
+    doc.font('Helvetica').fontSize(10);
+    doc.text('Amount Paid:', summaryX, y);
+    doc.text(`Rs. ${Number(invoice.amount_paid).toFixed(2)}`, 450, y, { align: 'right' });
+    
+    y += 15;
+    doc.font('Helvetica-Bold');
+    doc.text('Balance Due:', summaryX, y);
+    doc.text(`Rs. ${Number(invoice.balance_due).toFixed(2)}`, 450, y, { align: 'right' });
+    
+    // Footer
+    const footerY = 700;
+    doc.moveTo(50, footerY).lineTo(545, footerY).strokeColor('#e5e7eb').stroke();
+    doc.font('Helvetica-Bold').fontSize(10).text('Terms & Conditions', 50, footerY + 15);
+    doc.font('Helvetica').fontSize(8)
+      .text('1. Payment is due within the stated due date.', 50, footerY + 30)
+      .text('2. Please include invoice number on your check.', 50, footerY + 42)
+      .text('3. Late payments may be subject to additional fees.', 50, footerY + 54);
+      
+    doc.font('Helvetica-Bold').fontSize(10).text('Authorized Signature', 400, footerY + 15, { align: 'right' });
+    doc.moveTo(400, footerY + 50).lineTo(545, footerY + 50).strokeColor('#000000').stroke();
+    doc.font('Helvetica-Oblique').fontSize(8).fillColor('#6b7280').text('Generated by ZOLVEX CRM', 50, 760, { align: 'center' });
     
     doc.end();
   } catch (error) {

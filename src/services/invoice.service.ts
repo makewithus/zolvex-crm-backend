@@ -71,12 +71,13 @@ export const generateInvoiceFromBooking = async (bookingId: string, userId: stri
     const totalTax = Number(booking.tax);
     const finalAmt = Number(booking.final_amount);
     
-    const cgstPercent = 9;
-    const cgstAmount = totalTax / 2;
-    const sgstPercent = 9;
-    const sgstAmount = totalTax / 2;
-    const igstPercent = 0;
-    const igstAmount = 0;
+    // GST Snapshot perfectly mapped from Booking
+    const cgstPercent = Number(booking.cgst_percent);
+    const cgstAmount = Number(booking.cgst_amount);
+    const sgstPercent = Number(booking.sgst_percent);
+    const sgstAmount = Number(booking.sgst_amount);
+    const igstPercent = Number(booking.igst_percent);
+    const igstAmount = Number(booking.igst_amount);
 
     // 4. Create Invoice
     const invoice = await tx.invoice.create({
@@ -202,6 +203,7 @@ export const getInvoiceById = async (id: string) => {
     where: { id },
     include: {
       items: true,
+      booking: { select: { booking_id: true } },
       history: { orderBy: { changed_at: 'desc' } }
     }
   });

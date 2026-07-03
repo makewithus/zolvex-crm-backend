@@ -82,7 +82,10 @@ model PricingRule {
   city       City?     @relation(fields: [city_id], references: [id])
   bhk_type   String?
   tank_size  String?
-  base_price Float
+  base_price   Float
+  cgst_percent Float @default(9)
+  sgst_percent Float @default(9)
+  igst_percent Float @default(0)
   bookings   Booking[]
 
   @@unique([service_id, city_id, bhk_type, tank_size])
@@ -218,7 +221,13 @@ model Booking {
 
   base_price            Decimal @db.Decimal(10, 2)
   discount              Decimal @default(0) @db.Decimal(10, 2)
-  tax                   Decimal @default(0) @db.Decimal(10, 2)
+  tax                   Decimal @default(0) @db.Decimal(10, 2) // Retained for backward compatibility/total tax
+  cgst_percent          Decimal @default(0) @db.Decimal(5, 2)
+  cgst_amount           Decimal @default(0) @db.Decimal(10, 2)
+  sgst_percent          Decimal @default(0) @db.Decimal(5, 2)
+  sgst_amount           Decimal @default(0) @db.Decimal(10, 2)
+  igst_percent          Decimal @default(0) @db.Decimal(5, 2)
+  igst_amount           Decimal @default(0) @db.Decimal(10, 2)
   final_amount          Decimal @db.Decimal(10, 2)
   pricing_snapshot_json Json?
   pricing_rule_name     String?
