@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { BUSINESS_HOURS } from '../config/business-hours';
+import { checkAvailability } from './technician-availability.service';
 
 const prisma = new PrismaClient();
 
@@ -390,8 +391,20 @@ export const rescheduleBooking = async (id: string, data: any, userId: string) =
     }
 
     const newDate = new Date(data.scheduled_date);
+    
+    const linkedJob = (booking as any).job;
+    const isLinkedJobActive = linkedJob && !['Cancelled', 'Completed'].includes(linkedJob.status);
 
-    // 1. Update Booking
+    // 1. Availability Validation for Rescheduling
+    if (isLinkedJobActive && linkedJob.assigned_user_id) {
+      const duration = linkedJob.estimated_duration_minutes || 60;
+      const availability = await checkAvailability(linkedJob.assigned_user_id, booking.city_id, newDate, duration, linkedJob.id);
+      if (!availability.available) {
+        throw new AppError(`Cannot reschedule: ${availability.reason}`, 409);
+      }
+    }
+
+    // 2. Update Booking
     const updated = await tx.booking.update({
       where: { id },
       data: { scheduled_date: newDate, slot: data.slot, updated_by: userId }
@@ -403,14 +416,12 @@ export const rescheduleBooking = async (id: string, data: any, userId: string) =
         booking_id: booking.id,
         from_status: booking.status,
         to_status: booking.status, // Status unchanged — only date moved
-        changed_by: userId,
-        note: `Rescheduled to ${newDate.toISOString()}`
+        changed_by: userId
       }
     });
 
-    // 3. Sync linked Job if exists and not terminal
-    const linkedJob = (booking as any).job;
-    if (linkedJob && !['Cancelled', 'Completed'].includes(linkedJob.status)) {
+    // 4. Sync linked Job if exists and not terminal
+    if (isLinkedJobActive) {
       await tx.job.update({
         where: { id: linkedJob.id },
         data: { scheduled_start: newDate, status: 'Pending', updated_by: userId }

@@ -31,15 +31,15 @@ export const checkAvailability = async (
   const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
   const endHour = getHours(endTime);
   
-  if (startHour < BUSINESS_HOURS.START_HOUR || endHour > BUSINESS_HOURS.END_HOUR) {
-    // Soft warning for now — will become a hard block when booking-time validation is enforced
+  if (startHour < BUSINESS_HOURS.START_HOUR || endHour > BUSINESS_HOURS.END_HOUR || (endHour === BUSINESS_HOURS.END_HOUR && endTime.getMinutes() > 0)) {
+    return { available: false, reason: `Job falls outside of business hours (${BUSINESS_HOURS.START_HOUR}:00 - ${BUSINESS_HOURS.END_HOUR}:00)` };
   }
 
   // 3. Overlapping Jobs
   const overlappingJobs = await prisma.job.findMany({
     where: {
       assigned_user_id: userId,
-      status: { in: ['Assigned', 'Accepted', 'Travelling', 'Arrived', 'Started'] },
+      status: { notIn: ['Completed', 'Cancelled', 'Failed', 'NoAccess', 'CustomerNotAvailable'] },
       id: excludeJobId ? { not: excludeJobId } : undefined,
       scheduled_start: { lt: endTime },
     }
