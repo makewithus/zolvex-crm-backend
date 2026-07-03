@@ -91,8 +91,9 @@ export const getCalendarJobs = async (req: Request, res: Response) => {
   const nextDate = new Date(end_date as string);
 
   const kpis = {
-    total_today: 0,
+    total_today: 0,   // Active jobs (excludes Cancelled)
     unassigned: 0,
+    assigned: 0,
     running: 0,
     delayed: 0,
     completed: 0,
@@ -100,20 +101,34 @@ export const getCalendarJobs = async (req: Request, res: Response) => {
   };
 
   const now = new Date();
+  const TERMINAL_STATUSES = ['Cancelled', 'Completed', 'Failed', 'NoAccess', 'CustomerNotAvailable'];
+  // Delayed: only Pending or Assigned jobs that are 30+ minutes past their scheduled start
+  const DELAYED_ELIGIBLE = ['Pending', 'Assigned'];
 
   jobs.forEach(job => {
     const jobDate = new Date(job.scheduled_start);
     const isTargetDay = jobDate >= targetDate && jobDate <= nextDate;
     
     if (isTargetDay) {
-      kpis.total_today++;
-      if (!job.assigned_user_id) kpis.unassigned++;
-      if (['Travelling', 'Arrived', 'Started'].includes(job.status)) kpis.running++;
-      if (job.status === 'Completed') kpis.completed++;
-      if (job.status === 'Cancelled') kpis.cancelled++;
+      if (job.status === 'Cancelled') {
+        kpis.cancelled++;
+        return; // Cancelled jobs do not count toward any active metric
+      }
 
-      // Delayed if Pending/Assigned and past the scheduled start + 30 mins
-      if (['Pending', 'Assigned', 'Accepted'].includes(job.status)) {
+      if (job.status === 'Completed') {
+        kpis.completed++;
+        return; // Completed jobs do not count toward active totals
+      }
+
+      // Active job
+      kpis.total_today++;
+      
+      if (!job.assigned_user_id) kpis.unassigned++;
+      if (job.assigned_user_id && !['Travelling', 'Arrived', 'Started'].includes(job.status)) kpis.assigned++;
+      if (['Travelling', 'Arrived', 'Started'].includes(job.status)) kpis.running++;
+
+      // Delayed: only Pending or Assigned, and 30+ mins past scheduled start
+      if (DELAYED_ELIGIBLE.includes(job.status)) {
         const threshold = new Date(jobDate.getTime() + 30 * 60000);
         if (now > threshold) kpis.delayed++;
       }

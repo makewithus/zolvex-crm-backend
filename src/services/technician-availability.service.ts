@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { startOfDay, addDays, getHours } from 'date-fns';
+import { BUSINESS_HOURS } from '../config/business-hours';
 
 const prisma = new PrismaClient();
 
@@ -25,14 +26,13 @@ export const checkAvailability = async (
     return { available: false, reason: 'Technician is not assigned to this city' };
   }
 
-  // 2. Working Hours (Simple check: 08:00 - 20:00)
+  // 2. Working Hours — derived from central config, not hardcoded
   const startHour = getHours(startTime);
   const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
   const endHour = getHours(endTime);
   
-  if (startHour < 8 || endHour > 20) {
-    // In the future this can be a soft warning, but for now we just log it as part of availability
-    // return { available: false, reason: 'Outside of standard working hours (8AM - 8PM)' };
+  if (startHour < BUSINESS_HOURS.START_HOUR || endHour > BUSINESS_HOURS.END_HOUR) {
+    // Soft warning for now — will become a hard block when booking-time validation is enforced
   }
 
   // 3. Overlapping Jobs

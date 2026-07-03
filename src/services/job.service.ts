@@ -91,6 +91,12 @@ export const transitionJobStatus = async (
       throw new AppError('This job was updated by another dispatcher. Please refresh.', 409);
     }
 
+    // GUARD: Do not allow status changes on jobs whose parent booking is cancelled,
+    // UNLESS the transition itself is to Cancelled (cascade from booking is always allowed).
+    if (job.booking.status === 'Cancelled' && newStatus !== 'Cancelled') {
+      throw new AppError('Cannot update status — the parent booking has been cancelled.', 400);
+    }
+
     const currentStatus = job.status;
     if (currentStatus === newStatus) return job; // No-op
 

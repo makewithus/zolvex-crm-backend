@@ -349,7 +349,7 @@ export const rescheduleBooking = async (id: string, data: any, userId: string) =
 
 export const cancelBooking = async (id: string, cancel_reason: string, userId: string) => {
   return prisma.$transaction(async (tx) => {
-    const booking = await tx.booking.findUnique({ where: { id } });
+    const booking = await tx.booking.findUnique({ where: { id }, include: { job: true } });
     if (!booking) throw new AppError('Booking not found', 404);
 
     if (booking.status === 'Cancelled') throw new AppError('Booking is already cancelled', 400);
@@ -373,6 +373,28 @@ export const cancelBooking = async (id: string, cancel_reason: string, userId: s
         changed_by: userId
       }
     });
+
+    // BUG-001 FIX: Cascade-cancel the linked Job if it exists and is not already in a terminal state
+    const linkedJob = (booking as any).job;
+    if (linkedJob && !['Completed', 'Cancelled'].includes(linkedJob.status)) {
+      await tx.job.update({
+        where: { id: linkedJob.id },
+        data: {
+          status: 'Cancelled',
+          cancellation_reason: `Parent booking cancelled. Reason: ${cancel_reason}`,
+          updated_by: userId,
+        }
+      });
+      await tx.jobHistory.create({
+        data: {
+          job_id: linkedJob.id,
+          from_status: linkedJob.status,
+          to_status: 'Cancelled',
+          changed_by: userId,
+          note: `Cascade-cancelled: parent booking ${booking.booking_id} was cancelled.`
+        }
+      });
+    }
 
     return updated;
   });

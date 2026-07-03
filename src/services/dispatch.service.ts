@@ -23,6 +23,19 @@ export const assignTechnician = async (
   const job = await db.job.findUnique({ where: { id: jobId }, include: { booking: true } });
   if (!job) throw new AppError('Job not found', 404);
 
+  // GUARD: Terminal job states cannot be acted upon
+  if (job.status === 'Cancelled') {
+    throw new AppError('Cannot assign a technician to a cancelled job.', 400);
+  }
+  if (job.status === 'Completed') {
+    throw new AppError('Cannot assign a technician to a completed job.', 400);
+  }
+
+  // GUARD: Parent booking must not be cancelled (BUG-001 fix)
+  if (job.booking.status === 'Cancelled') {
+    throw new AppError('Cannot assign a technician — the parent booking is cancelled.', 400);
+  }
+
   // Optimistic Concurrency Control (OCC)
   if (versionToken && job.updated_at.toISOString() !== versionToken) {
     throw new AppError('This job was updated by another dispatcher. Please refresh.', 409);
@@ -100,6 +113,19 @@ export const rescheduleJob = async (
   const db = tx || prisma;
   const job = await db.job.findUnique({ where: { id: jobId }, include: { booking: true } });
   if (!job) throw new AppError('Job not found', 404);
+
+  // GUARD: Terminal job states cannot be rescheduled
+  if (job.status === 'Cancelled') {
+    throw new AppError('Cannot reschedule a cancelled job.', 400);
+  }
+  if (job.status === 'Completed') {
+    throw new AppError('Cannot reschedule a completed job.', 400);
+  }
+
+  // GUARD: Parent booking must not be cancelled
+  if (job.booking.status === 'Cancelled') {
+    throw new AppError('Cannot reschedule — the parent booking is cancelled.', 400);
+  }
 
   // Optimistic Concurrency Control (OCC)
   if (versionToken && job.updated_at.toISOString() !== versionToken) {
