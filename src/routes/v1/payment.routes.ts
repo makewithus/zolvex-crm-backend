@@ -10,22 +10,26 @@ const router = Router();
 // Protect all routes
 router.use(protect);
 
-// Only Super Admin, Finance, and City Manager can record payments
+// Roles allowed to interact with any payment endpoint
+const PAYMENT_ROLES = ['Super Admin', 'Finance', 'City Manager'] as const;
+
+// Only authorised roles can record payments
 router.post(
   '/',
-  authorize('Super Admin', 'Finance', 'City Manager'),
+  authorize(...PAYMENT_ROLES),
   validateRequest(createPaymentSchema),
   paymentController.recordPayment
 );
 
-// All authenticated users can view payments
+// Only authorised roles can view payments
 router.get(
   '/',
+  authorize(...PAYMENT_ROLES),
   validateRequest(getPaymentsSchema),
   paymentController.getPayments
 );
 
-router.get('/:id', paymentController.getPaymentById);
-router.get('/:id/pdf', paymentController.downloadReceipt);
+router.get('/:id', authorize(...PAYMENT_ROLES), paymentController.getPaymentById);
+router.get('/:id/pdf', authorize(...PAYMENT_ROLES), paymentController.downloadReceipt);
 
 export default router;

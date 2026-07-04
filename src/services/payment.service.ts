@@ -14,6 +14,7 @@ export const recordPayment = async (data: {
   invoice_id: string;
   amount: number;
   payment_method: PaymentMethod;
+  payment_date?: string; // ISO date string, defaults to now()
   payment_metadata?: any;
   notes?: string;
   reason?: string;
@@ -78,6 +79,7 @@ export const recordPayment = async (data: {
         amount: paymentAmount,
         payment_method: data.payment_method,
         payment_status: 'Completed', // For manual payments, immediately complete
+        payment_date: data.payment_date ? new Date(data.payment_date) : new Date(),
         payment_metadata: data.payment_metadata || {},
         notes: data.notes,
         recorded_by: userId
@@ -130,7 +132,8 @@ export const getPayments = async (filters: { invoice_id?: string; customer_id?: 
     orderBy: { created_at: 'desc' },
     include: {
       user: { select: { name: true } },
-      customer: { select: { name: true, phone: true } }
+      customer: { select: { name: true, phone: true } },
+      invoice: { select: { invoice_number: true } }
     }
   });
 };
