@@ -13,6 +13,7 @@ import lostReasonRoutes from './lostReason.routes';
 import dashboardRoutes from './dashboard.routes';
 import invoiceRoutes from './invoice.routes';
 import paymentRoutes from './payment.routes';
+import reportRoutes from './report.routes';
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use('/invoices', invoiceRoutes);
 router.use('/lost-reasons', lostReasonRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;
