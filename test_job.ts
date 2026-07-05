@@ -1,0 +1,1 @@
+import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); async function run() { const job = await prisma.job.findFirst({ where: { status: 'Started' } }); console.log(job); } run();  
