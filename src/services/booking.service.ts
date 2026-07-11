@@ -2,6 +2,7 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { BUSINESS_HOURS } from '../config/business-hours';
 import { checkAvailability } from './technician-availability.service';
+import { eventBus } from '../events/eventBus';
 
 const prisma = new PrismaClient();
 
@@ -87,7 +88,7 @@ export const getBookingById = async (id: string) => {
 // Core atomic conversion logic
 export const convertLeadToBooking = async (leadId: string, bookingData: any, userId: string) => {
   validateSlot(bookingData.slot);
-  return prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx) => {
     // 1. Verify Lead
     const lead = await tx.lead.findUnique({
       where: { id: leadId },
@@ -210,11 +211,14 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
 
     return booking;
   });
+  // Publish AFTER the transaction commits — handler sees consistent DB state
+  eventBus.publish('Booking.Created', { booking_id: booking.id, scheduled_date: booking.scheduled_date });
+  return booking;
 };
 
 export const createBooking = async (data: any, userId: string) => {
   validateSlot(data.slot);
-  return prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx) => {
     // 1. Verify Customer, Service, City
     const [customer, service, city] = await Promise.all([
       tx.customer.findUnique({ where: { id: data.customer_id } }),
@@ -308,6 +312,9 @@ export const createBooking = async (data: any, userId: string) => {
 
     return booking;
   });
+  // Publish AFTER the transaction commits — handler sees consistent DB state
+  eventBus.publish('Booking.Created', { booking_id: booking.id, scheduled_date: booking.scheduled_date });
+  return booking;
 };
 
 export const updateBooking = async (id: string, data: any, userId: string) => {
