@@ -2,6 +2,7 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import * as jobService from './job.service';
 import { checkAvailability } from './technician-availability.service';
+import { eventBus } from '../events/eventBus';
 
 const prisma = new PrismaClient();
 
@@ -99,6 +100,8 @@ export const assignTechnician = async (
       changed_by: assignedByUserId
     }
   });
+
+  eventBus.publish('Job.Assigned', { job_id: jobId, assigned_user_id: userId });
 
   return { success: true };
 };
