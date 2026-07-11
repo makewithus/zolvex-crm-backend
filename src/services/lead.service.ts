@@ -1,5 +1,6 @@
 import { PrismaClient, LeadStatus, Prisma } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+import { eventBus } from '../events/eventBus';
 
 const prisma = new PrismaClient();
 
@@ -35,7 +36,7 @@ export const getLeadById = async (id: string, cityId?: string) => {
 };
 
 export const createLead = async (data: any, created_by: string) => {
-  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  const lead = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // 1. Mandatory Customer deduplication and auto-creation
     const customer = await tx.customer.upsert({
       where: { phone: data.phone },
@@ -61,6 +62,11 @@ export const createLead = async (data: any, created_by: string) => {
     });
     return lead;
   });
+
+  // Emit event for Sprint 9.3 Operations Automations
+  eventBus.publish('Lead.Created', { lead_id: lead.id });
+
+  return lead;
 };
 
 export const updateLead = async (id: string, data: any, changed_by: string) => {
