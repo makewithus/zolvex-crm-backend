@@ -159,6 +159,6 @@ export const uploadJobPhotos = async (req: Request, res: Response) => {
     category: 'Other' as const // We default to Other, could be extended based on body input
   }));
 
-  const savedMedia = await jobService.addJobMedia(id, uploadedMedia, user.id);
+  const savedMedia = await jobService.addJobMedia(id as string, uploadedMedia, user.id);
   sendSuccess(res, 201, 'Photos uploaded successfully', savedMedia);
 };
