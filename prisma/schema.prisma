@@ -586,3 +586,138 @@ model InvoiceHistory {
   reason     String?
   changed_at DateTime @default(now())
 }
+
+// ----------------------------------------------------------------------
+// PHASE 9: AUTOMATION & TRIGGERS
+// ----------------------------------------------------------------------
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+// Generic status for automation executions (e.g., execution log entries)
+enum AutomationStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum FailureClassification {
+  PERMANENT
+  TRANSIENT
+  VALIDATION
+  PROVIDER
+  INTERNAL
+}
+
+// Explicit, dedicated status lifecycle for notifications
+// Distinct from AutomationStatus so the two concerns are never conflated
+enum NotificationStatus {
+  PENDING      // Queued, not yet picked up
+  PROCESSING   // A worker has claimed it
+  SENT         // Delivery confirmed by provider
+  FAILED       // Max attempts exceeded, manual review needed
+  CANCELLED    // Superseded (e.g., booking was cancelled)
+}
+
+model ScheduledTask {
+  id               String       @id @default(uuid())
+  correlation_id   String?      // Traceability across systems
+  task_name        String       // e.g., "BOOKING_REMINDER_24H"
+  
+  // Removed reference_id / reference_type in favor of extensible metadata
+  metadata         Json         // Extensible context (e.g., { booking_id: "...", city_id: "..." })
+  payload          Json?        // Any data needed for execution
+
+  // idempotency_key prevents duplicate tasks for the same event+action
+  // e.g., "BOOKING_REMINDER_24H:BOOK-1234"
+  idempotency_key  String       @unique
+
+  scheduled_for    DateTime
+  priority         TaskPriority @default(NORMAL)
+
+  // Locking & Execution (multi-worker safety)
+  locked_at        DateTime?
+  locked_by        String?      // Worker ID (e.g., "worker-PID-RAND")
+  attempts         Int          @default(0)
+  max_attempts     Int          @default(3)
+  last_error       String?
+
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+
+  @@index([scheduled_for])
+  @@index([locked_at])
+  @@index([priority])
+  @@index([task_name])
+  @@index([correlation_id])
+}
+
+model NotificationQueue {
+  id                  String             @id @default(uuid())
+  correlation_id      String?            // Traceability from trigger -> delivery
+  recipient_type      String             // e.g., "Customer", "Staff"
+  recipient_id        String
+  channel             NotificationChannel
+  provider            String?            // e.g., "Twilio", "Meta", "Gupshup"
+  provider_message_id String?            // Filled by Phase 10 provider integration
+  template_code       String
+  payload_version     String             @default("1.0") // Evolving templates
+  payload             Json               // Variables for the template renderer
+  
+  // Explicit lifecycle status - never a boolean
+  status              NotificationStatus @default(PENDING)
+  error_message       String?
+  attempts            Int                @default(0)
+  max_attempts        Int                @default(3)
+
+  created_at          DateTime           @default(now())
+  sent_at             DateTime?
+
+  @@index([status])
+  @@index([recipient_id])
+  @@index([correlation_id])
+}
+
+model AutomationExecutionLog {
+  id            String           @id @default(uuid())
+  correlation_id String?         // Traceability across logs
+  event_name    String           // e.g., "Booking.Created"
+  reference_id  String           // e.g., "BOOK-1234"
+  action_taken  String           // e.g., "Queued WhatsApp Message"
+
+  status        AutomationStatus
+  error_message String?
+  failure_class FailureClassification?
+
+  // Timing for performance diagnostics
+  started_at    DateTime
+  finished_at   DateTime
+  duration_ms   Int
+
+  // Observability fields (invaluable during multi-instance debugging)
+  hostname      String           // Server hostname
+  worker_id     String           // Worker/process ID
+  retry_number  Int              @default(0) // Which attempt this log entry represents
+
+  @@index([event_name, reference_id])
+  @@index([status])
+  @@index([worker_id])
+  @@index([correlation_id])
+}
+
+model AutomationMetric {
+  id         String   @id @default(uuid())
+  metric_key String   @unique // e.g., "Tasks.Scheduled", "Notifications.Sent"
+  value      Int      @default(0)
+  updated_at DateTime @updatedAt
+}
