@@ -137,3 +137,28 @@ export const getCalendarJobs = async (req: Request, res: Response) => {
 
   sendSuccess(res, 200, 'Calendar jobs retrieved', { jobs, kpis });
 };
+
+export const uploadJobPhotos = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { id } = req.params;
+  const files = req.files as Express.Multer.File[];
+
+  if (!files || files.length === 0) {
+    return sendSuccess(res, 400, 'No photos uploaded', null);
+  }
+
+  // Create absolute URLs or relative paths depending on your setup.
+  // We'll use relative /uploads paths for simplicity in dev.
+  const host = req.get('host');
+  const protocol = req.protocol;
+  const baseUrl = `${protocol}://${host}/uploads`;
+
+  const uploadedMedia = files.map(file => ({
+    url: `${baseUrl}/${file.filename}`,
+    type: 'Image' as const, // from MediaType enum
+    category: 'Other' as const // We default to Other, could be extended based on body input
+  }));
+
+  const savedMedia = await jobService.addJobMedia(id, uploadedMedia, user.id);
+  sendSuccess(res, 201, 'Photos uploaded successfully', savedMedia);
+};
