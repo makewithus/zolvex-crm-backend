@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma, PaymentMethod } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+import { eventBus } from '../events/eventBus';
 
 const prisma = new PrismaClient();
 
@@ -19,7 +20,7 @@ export const recordPayment = async (data: {
   notes?: string;
   reason?: string;
 }, userId: string, userRole: string, ipAddress?: string) => {
-  return prisma.$transaction(async (tx) => {
+  const payment = await prisma.$transaction(async (tx) => {
     // 1. Verify and Lock Invoice (Prevents concurrent race conditions)
     const lockedInvoice = await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${data.invoice_id} FOR UPDATE`;
     if (!lockedInvoice || (lockedInvoice as any[]).length === 0) throw new AppError('Invoice not found', 404);
@@ -124,6 +125,9 @@ export const recordPayment = async (data: {
 
     return payment;
   });
+  // Publish AFTER the transaction commits — handler sees consistent DB state
+  eventBus.publish('Payment.Received', { payment_id: payment.id });
+  return payment;
 };
 
 export const getPayments = async (filters: { invoice_id?: string; customer_id?: string }) => {
