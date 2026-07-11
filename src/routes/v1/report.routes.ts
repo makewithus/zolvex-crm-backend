@@ -16,5 +16,10 @@ router.get('/financial', authorize(...REPORT_ROLES), reportController.getFinanci
 router.get('/operational', authorize(...OPERATIONAL_ROLES), reportController.getOperationalReport);
 router.get('/technician', authorize(...OPERATIONAL_ROLES), reportController.getTechnicianReport);
 router.get('/gst', authorize(...REPORT_ROLES), reportController.getGSTReport);
+// Exports
+router.get('/export/financial', authorize(...REPORT_ROLES), reportController.exportFinancialReport);
+router.get('/export/operational', authorize(...OPERATIONAL_ROLES), reportController.exportOperationalReport);
+router.get('/export/technician', authorize(...OPERATIONAL_ROLES), reportController.exportTechnicianReport);
+router.get('/export/gst', authorize(...REPORT_ROLES), reportController.exportGSTReport);
 
 export default router;
