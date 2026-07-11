@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
 import { env } from './config/env';
 import { errorHandler } from './middlewares/error.middleware';
 import { logger } from './utils/logger';
@@ -14,7 +15,10 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
+
+
 app.use('/api/v1', v1Routes);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.use(errorHandler);
 
