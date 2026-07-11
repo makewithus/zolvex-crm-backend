@@ -8,6 +8,7 @@ import { errorHandler } from './middlewares/error.middleware';
 import { logger } from './utils/logger';
 import v1Routes from './routes/v1';
 import { startCronSweeper } from './workers/cronSweeper';
+import { startNotificationWorker } from './workers/notificationWorker';
 import { registerCustomerAutomations } from './automations/customerAutomations';
 import { registerOperationsAutomations } from './automations/operationsAutomations';
 
@@ -33,5 +34,8 @@ app.listen(env.PORT, () => {
 
   // Start the background cron sweeper LAST — handlers must be registered first
   startCronSweeper();
+  
+  // Phase 10: Start Notification Worker
+  startNotificationWorker();
 });
 
