@@ -4,6 +4,7 @@ import { protect } from '../../middlewares/auth.middleware';
 import { authorize } from '../../middlewares/rbac.middleware';
 import { validateRequest } from '../../middlewares/validate.middleware';
 import * as jobValidation from '../../validations/job.validation';
+import { upload } from '../../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -21,5 +22,8 @@ router.patch('/:id/status', authorize('Super Admin', 'City Manager', 'Field Staf
 // Dispatch functions (Admins only)
 router.patch('/:id/assign', authorize('Super Admin', 'City Manager'), validateRequest(jobValidation.assignJobSchema), jobController.assignJob);
 router.patch('/:id/reschedule', authorize('Super Admin', 'City Manager'), validateRequest(jobValidation.rescheduleJobSchema), jobController.rescheduleJob);
+
+// Media upload
+router.post('/:id/photos', authorize('Super Admin', 'City Manager', 'Field Staff'), upload.array('photos', 5), jobController.uploadJobPhotos);
 
 export default router;
