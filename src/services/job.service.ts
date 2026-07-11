@@ -267,3 +267,23 @@ export const getJobById = async (id: string) => {
   if (!job) throw new AppError('Job not found', 404);
   return job;
 };
+
+export const addJobMedia = async (jobId: string, mediaFiles: any[], uploadedBy: string) => {
+  const job = await prisma.job.findUnique({ where: { id: jobId } });
+  if (!job) throw new AppError('Job not found', 404);
+
+  const mediaData = mediaFiles.map(file => ({
+    job_id: jobId,
+    type: file.type,
+    category: file.category,
+    url: file.url,
+    uploaded_by: uploadedBy
+  }));
+
+  await prisma.jobMedia.createMany({
+    data: mediaData
+  });
+
+  return prisma.jobMedia.findMany({ where: { job_id: jobId } });
+};
+
