@@ -6,7 +6,23 @@ const prisma = new PrismaClient();
  * Live KPI aggregates. All numbers come from the database.
  * No hardcoded values.
  */
-export const getDashboardKPIs = async (role: string, cityId?: string) => {
+export const getDashboardKPIs = async (role: string, cityId?: string, userId?: string) => {
+  // Field Staff: only see their own assigned job counts
+  if (role === 'Field Staff' && userId) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart.getTime() + 86400000 - 1);
+
+    const [assignedJobs, jobsToday, pendingJobs, completedJobs] = await Promise.all([
+      prisma.job.count({ where: { assigned_user_id: userId, status: { notIn: ['Cancelled', 'Completed'] } } }),
+      prisma.job.count({ where: { assigned_user_id: userId, scheduled_start: { gte: todayStart, lte: todayEnd }, status: { notIn: ['Cancelled'] } } }),
+      prisma.job.count({ where: { assigned_user_id: userId, status: 'Pending' } }),
+      prisma.job.count({ where: { assigned_user_id: userId, status: 'Completed' } }),
+    ]);
+
+    return { assigned_jobs: assignedJobs, jobs_today: jobsToday, pending_jobs: pendingJobs, completed_jobs: completedJobs };
+  }
+
   const bookingWhere: any = {};
   const leadWhere: any = {};
   if (role === 'City Manager' && cityId) {

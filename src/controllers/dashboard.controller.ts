@@ -4,7 +4,7 @@ import { sendSuccess } from '../utils/response.util';
 
 export const getKPIs = async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const data = await dashboardService.getDashboardKPIs(user.role, user.cityId);
+  const data = await dashboardService.getDashboardKPIs(user.role, user.cityId, user.id);
   sendSuccess(res, 200, 'Dashboard KPIs retrieved', data);
 };
 
