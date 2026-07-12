@@ -24,17 +24,29 @@ export const getUserById = async (id: string) => {
 
 export const createUser = async (userData: any, passwordRaw: string) => {
   const password_hash = await bcrypt.hash(passwordRaw, 10);
+  // Sanitise optional FK: empty string "" must become null, not a FK lookup
+  const sanitised = {
+    ...userData,
+    city_id: userData.city_id || null,
+  };
   return prisma.user.create({
-    data: { ...userData, password_hash }
+    data: { ...sanitised, password_hash }
   });
 };
 
 export const updateUser = async (id: string, data: any) => {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw new AppError('User not found', 404);
+  
+  // Sanitise optional FK: empty string "" must become null, not a FK lookup
+  const sanitised = { ...data };
+  if ('city_id' in sanitised) {
+    sanitised.city_id = sanitised.city_id || null;
+  }
+  
   return prisma.user.update({
     where: { id },
-    data,
+    data: sanitised,
     select: { id: true, name: true, phone: true, is_active: true, joining_date: true, skill_tags: true, role: true, city: true }
   });
 };
