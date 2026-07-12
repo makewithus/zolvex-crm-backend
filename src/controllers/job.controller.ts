@@ -141,24 +141,23 @@ export const getCalendarJobs = async (req: Request, res: Response) => {
 export const uploadJobPhotos = async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { id } = req.params;
+  const { category } = req.body; // 'Before' | 'After' | 'Other'
   const files = req.files as Express.Multer.File[];
 
   if (!files || files.length === 0) {
     return sendSuccess(res, 400, 'No photos uploaded', null);
   }
 
-  // Create absolute URLs or relative paths depending on your setup.
-  // We'll use relative /uploads paths for simplicity in dev.
-  const host = req.get('host');
-  const protocol = req.protocol;
-  const baseUrl = `${protocol}://${host}/uploads`;
+  const validCategories = ['Before', 'After', 'Other'];
+  const mediaCategory = validCategories.includes(category) ? category : 'Other';
 
-  const uploadedMedia = files.map(file => ({
-    url: `${baseUrl}/${file.filename}`,
-    type: 'Image' as const, // from MediaType enum
-    category: 'Other' as const // We default to Other, could be extended based on body input
-  }));
+  // Route every file through MediaService — controller has no knowledge of storage
+  const { uploadJobMedia } = await import('../services/media.service');
 
-  const savedMedia = await jobService.addJobMedia(id as string, uploadedMedia, user.id);
-  sendSuccess(res, 201, 'Photos uploaded successfully', savedMedia);
+  const saved = await Promise.all(
+    files.map(file => uploadJobMedia(id as string, user.id, file, mediaCategory))
+  );
+
+  sendSuccess(res, 201, `${saved.length} photo(s) uploaded successfully`, saved);
 };
+
