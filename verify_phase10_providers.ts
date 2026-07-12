@@ -215,7 +215,7 @@ async function run() {
   healthRegistry.recordFailure('MOCK', 500);
   healthRegistry.recordFailure('MOCK', 600);
   const afterFail = healthRegistry.get('MOCK');
-  afterFail?.consecutive_failures === 2 || afterFail?.consecutiveFailures === 2
+  afterFail?.consecutiveFailures === 2
     ? ok('Health registry: consecutive failures tracked') : ok('Health registry: failure count incremented');
   afterFail?.healthy === false ? ok('Health registry: provider marked unhealthy after failures') : fail('Provider still healthy after failures');
   afterFail?.lastFailure !== null ? ok('Health registry: lastFailure timestamp set') : fail('lastFailure not recorded');
