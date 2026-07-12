@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import path from 'path';
 import { env } from './config/env';
 import { errorHandler } from './middlewares/error.middleware';
 import { logger } from './utils/logger';
@@ -15,7 +14,10 @@ import { registerOperationsAutomations } from './automations/operationsAutomatio
 const app = express();
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: env.FRONTEND_URL,
+  credentials: true,
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -25,7 +27,8 @@ registerCustomerAutomations();   // Sprint 9.2: Booking Reminder, Invoice Scan, 
 registerOperationsAutomations(); // Sprint 9.3: Job Alerts, Lead Follow-up, Escalations
 
 app.use('/api/v1', v1Routes);
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// NOTE: /uploads static route removed — file serving is handled by Cloudflare R2 in production.
+// In development (PROVIDER_MODE=mock), photos are still served locally via the URL stored in JobMedia.url.
 
 app.use(errorHandler);
 
