@@ -184,20 +184,20 @@ export const exportTechnicianReport = async (req: Request, res: Response) => {
     const exportFormat = req.query.format as string;
     const meta = buildMeta(req, 'Technician Productivity Report');
 
-    const headers = ['Technician ID', 'Jobs Completed', 'Scheduled (min)', 'Actual (min)', 'Utilization %'];
+    const headers = ['Technician', 'Jobs Completed', 'Scheduled (min)', 'Actual (min)', 'Utilization %'];
     const rows: any[][] = [];
 
-    Object.entries(productivity).forEach(([techId, stats]) => {
+    Object.entries(productivity).forEach(([, stats]) => {
       const util =
         stats.total_scheduled_mins > 0
           ? Math.round((stats.total_actual_mins / stats.total_scheduled_mins) * 100)
           : 0;
       rows.push([
-        techId,
+        stats.name,
         stats.jobs_completed,
         stats.total_scheduled_mins,
-        stats.total_actual_mins > 0 ? stats.total_actual_mins : 'Not recorded',
-        stats.total_actual_mins > 0 ? `${util}%` : 'N/A',
+        stats.total_actual_mins > 0 ? stats.total_actual_mins : '—',
+        stats.total_actual_mins > 0 ? `${util}%` : 'Timing not recorded',
       ]);
     });
 

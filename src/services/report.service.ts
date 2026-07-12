@@ -166,17 +166,24 @@ export const getTechnicianProductivity = async (filters: ReportFilters) => {
       assigned_user_id: true,
       actual_start: true,
       actual_end: true,
-      estimated_duration_minutes: true
+      estimated_duration_minutes: true,
+      // Join User to get name
+      assignedUser: { select: { id: true, name: true } }
     }
   });
 
-  const techStats: Record<string, { jobs_completed: number, total_scheduled_mins: number, total_actual_mins: number }> = {};
+  const techStats: Record<string, { name: string; jobs_completed: number, total_scheduled_mins: number, total_actual_mins: number }> = {};
 
   jobs.forEach(job => {
     if (!job.assigned_user_id) return;
     
     if (!techStats[job.assigned_user_id]) {
-      techStats[job.assigned_user_id] = { jobs_completed: 0, total_scheduled_mins: 0, total_actual_mins: 0 };
+      techStats[job.assigned_user_id] = {
+        name: job.assignedUser?.name || 'Unknown',
+        jobs_completed: 0,
+        total_scheduled_mins: 0,
+        total_actual_mins: 0
+      };
     }
 
     const stat = techStats[job.assigned_user_id];
