@@ -125,13 +125,34 @@ export const transitionJobStatus = async (
       }
     }
 
-    // 2. Validate Business Rules on Completion
+    // 2. Validate Business Rules on Status Transitions
+    const MIN_PHOTOS = 3;
+
+    if (newStatus === 'Started') {
+      const beforeCount = await tx.jobMedia.count({
+        where: { job_id: jobId, category: 'Before' }
+      });
+      if (beforeCount < MIN_PHOTOS) {
+        throw new AppError(
+          `Cannot start job: at least ${MIN_PHOTOS} before photos are required (${beforeCount} uploaded).`,
+          400
+        );
+      }
+    }
+
     if (newStatus === 'Completed') {
       if (!options?.completionNotes) {
-         // In reality, read from configuration layer.
-         throw new AppError('Completion notes are required to complete a job', 400);
+        throw new AppError('Completion notes are required to complete a job', 400);
       }
-      // Assuming signature validation or media count validation would go here or be enforced before calling this.
+      const afterCount = await tx.jobMedia.count({
+        where: { job_id: jobId, category: 'After' }
+      });
+      if (afterCount < MIN_PHOTOS) {
+        throw new AppError(
+          `Cannot complete job: at least ${MIN_PHOTOS} after photos are required (${afterCount} uploaded).`,
+          400
+        );
+      }
     }
 
     // 3. Prepare Updates
