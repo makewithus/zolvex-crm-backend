@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import * as invoiceService from '../services/invoice.service';
+
+const prisma = new PrismaClient();
 
 export const getInvoices = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -74,10 +77,6 @@ export const getCustomerInvoices = async (req: Request, res: Response, next: Nex
 export const generatePdf = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoice = await invoiceService.getInvoiceById(req.params.id as string);
-    
-    // Fetch booking manually because no relation exists
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
     const booking = await prisma.booking.findUnique({ where: { id: invoice.booking_id } });
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
