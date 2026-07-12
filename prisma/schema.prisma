@@ -53,6 +53,7 @@ model User {
   assignedJobs      Job[]               @relation("AssignedJobs")
   Payment           Payment[]
   PaymentHistory    PaymentHistory[]
+  AssignedComplaints Complaint[] @relation("AssignedComplaints")
 }
 
 model StaffAvailability {
@@ -133,6 +134,7 @@ model Lead {
   notes   LeadNote[]
   history LeadHistory[]
   booking Booking?
+  quotes  Quote[]
 }
 
 model LeadNote {
@@ -169,9 +171,11 @@ model Customer {
   is_repeat_customer Boolean  @default(false)
   tags               String[]
 
-  leads    Lead[]
-  bookings Booking[]
-  Payment  Payment[]
+  leads      Lead[]
+  bookings   Booking[]
+  Payment    Payment[]
+  Complaints Complaint[]
+  Quotes     Quote[]
 }
 
 enum BookingStatus {
@@ -259,6 +263,7 @@ model Booking {
 
   history BookingHistory[]
   job     Job?
+  Complaints Complaint[]
 
   @@index([booking_id])
   @@index([status])
@@ -372,6 +377,7 @@ model Job {
   history            JobHistory[]
   assignment_history JobAssignmentHistory[]
   media              JobMedia[]
+  Complaints         Complaint[]
 
   @@index([job_id])
   @@index([status])
@@ -547,6 +553,7 @@ model Invoice {
   items    InvoiceItem[]
   history  InvoiceHistory[]
   payments Payment[]
+  Complaints Complaint[]
 
   @@index([status])
   @@index([payment_status])
@@ -720,4 +727,181 @@ model AutomationMetric {
   metric_key String   @unique // e.g., "Tasks.Scheduled", "Notifications.Sent"
   value      Int      @default(0)
   updated_at DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------
+// PHASE 11: OPTIONAL MODULES (Sprint 11.1: Complaint Management)
+// ----------------------------------------------------------------------
+
+enum ComplaintStatus {
+  Open
+  Assigned
+  InProgress
+  Resolved
+  Closed
+  Escalated
+}
+
+enum ComplaintPriority {
+  Low
+  Normal
+  High
+  Critical
+}
+
+model ComplaintSequence {
+  id    Int @id @default(1)
+  value Int @default(1)
+}
+
+model Complaint {
+  id              String           @id @default(uuid())
+  complaint_id    String           @unique   // e.g. CMP-2607-001
+  sequence_number Int              @unique
+
+  customer_id     String
+  customer        Customer         @relation(fields: [customer_id], references: [id])
+  
+  booking_id      String?          // Optional reference
+  booking         Booking?         @relation(fields: [booking_id], references: [id])
+  
+  job_id          String?          // Optional reference
+  job             Job?             @relation(fields: [job_id], references: [id])
+  
+  invoice_id      String?          // Optional reference
+  invoice         Invoice?         @relation(fields: [invoice_id], references: [id])
+  
+  subject         String
+  description     String
+  
+  status          ComplaintStatus  @default(Open)
+  priority        ComplaintPriority @default(Normal)
+  
+  assigned_to     String?
+  assignedTo      User?            @relation("AssignedComplaints", fields: [assigned_to], references: [id])
+  
+  resolution_note String?
+  created_by      String
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+  
+  timeline        ComplaintTimeline[]
+  
+  @@index([customer_id])
+  @@index([status])
+  @@index([assigned_to])
+  @@index([booking_id])
+}
+
+model ComplaintTimeline {
+  id            String          @id @default(uuid())
+  complaint_id  String
+  complaint     Complaint       @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  from_status   ComplaintStatus?
+  to_status     ComplaintStatus
+  note          String?
+  changed_by    String
+  changed_at    DateTime        @default(now())
+}
+
+
+// ----------------------------------------------------------------------
+// PHASE 11: OPTIONAL MODULES (Sprint 11.2: Quote Management)
+// NOTE: Approval workflow (auto-booking vs manual) is intentionally
+//       NOT implemented here. It will be added once the client confirms
+//       the desired behavior. The scaffold is complete in all other respects.
+// ----------------------------------------------------------------------
+
+enum QuoteStatus {
+  Draft
+  Sent
+  Viewed
+  Accepted
+  // Approved → PENDING CLIENT DECISION on booking conversion behavior
+  Rejected
+  Expired
+}
+
+model QuoteSequence {
+  id    Int @id @default(1)
+  value Int @default(1)
+}
+
+model Quote {
+  id              String      @id @default(uuid())
+  quote_id        String      @unique   // e.g. QT-2607-001
+  sequence_number Int         @unique
+
+  // Ownership — always linked to a Customer
+  customer_id     String
+  customer        Customer    @relation(fields: [customer_id], references: [id])
+
+  // Optional upstream reference — not required
+  lead_id         String?
+  lead            Lead?       @relation(fields: [lead_id], references: [id])
+
+  // Core fields
+  subject         String
+  description     String?
+  status          QuoteStatus @default(Draft)
+
+  // Pricing totals (computed from line items — stored for PDF/reporting)
+  subtotal        Decimal     @default(0) @db.Decimal(12, 2)
+  tax_amount      Decimal     @default(0) @db.Decimal(12, 2)
+  discount_amount Decimal     @default(0) @db.Decimal(12, 2)
+  total_amount    Decimal     @default(0) @db.Decimal(12, 2)
+
+  // PDF / communication
+  valid_until     DateTime?
+  notes           String?     // Internal notes
+  terms           String?     // Customer-facing terms
+
+  // Audit
+  created_by      String
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+  sent_at         DateTime?
+  viewed_at       DateTime?
+  accepted_at     DateTime?
+  rejected_at     DateTime?
+
+  line_items      QuoteLineItem[]
+  timeline        QuoteTimeline[]
+
+  @@index([customer_id])
+  @@index([status])
+  @@index([lead_id])
+  @@index([valid_until])
+}
+
+model QuoteLineItem {
+  id          String   @id @default(uuid())
+  quote_id    String
+  quote       Quote    @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  // Optional service reference — not required
+  service_id  String?
+
+  description String
+  quantity    Int      @default(1)
+  unit_price  Decimal  @db.Decimal(12, 2)
+  tax_percent Decimal  @default(18) @db.Decimal(5, 2)
+  total_price Decimal  @db.Decimal(12, 2)
+
+  sort_order  Int      @default(0)
+
+  @@index([quote_id])
+}
+
+model QuoteTimeline {
+  id          String      @id @default(uuid())
+  quote_id    String
+  quote       Quote       @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  from_status QuoteStatus?
+  to_status   QuoteStatus
+  note        String?
+  changed_by  String
+  changed_at  DateTime    @default(now())
+
+  @@index([quote_id])
 }
