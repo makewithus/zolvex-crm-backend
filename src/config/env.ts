@@ -19,6 +19,11 @@ const baseSchema = z.object({
   DATABASE_URL: z.string(),
   JWT_SECRET:   z.string(),
 
+  // CORS — required in all modes so the server knows which origin to allow.
+  // In development: http://localhost:5173 (Vite default).
+  // In production: https://yourdomain.com
+  FRONTEND_URL: z.string().default('http://localhost:5173'),
+
   // Worker configuration (optional with defaults)
   NOTIFICATION_WORKER_INTERVAL_MS:    z.string().default('10000'),
   NOTIFICATION_WORKER_BATCH_SIZE:     z.string().default('20'),
@@ -32,6 +37,12 @@ const sandboxSchema = baseSchema.extend({
   META_PHONE_NUMBER_ID:       z.string({ error: 'META_PHONE_NUMBER_ID is required for sandbox/production mode' }),
   META_WHATSAPP_API_VERSION:  z.string().default('v18.0'),
   META_WHATSAPP_BASE_URL:     z.string().default('https://graph.facebook.com'),
+
+  // Meta Webhook security (required in sandbox + production)
+  // META_VERIFY_TOKEN: a random string you define — sent back by Meta to verify ownership
+  // META_APP_SECRET:   from Meta App dashboard — used to verify webhook signature (HMAC-SHA256)
+  META_VERIFY_TOKEN:          z.string({ error: 'META_VERIFY_TOKEN is required for sandbox/production mode' }),
+  META_APP_SECRET:            z.string({ error: 'META_APP_SECRET is required for sandbox/production mode' }),
 
   // Email (required in sandbox + production)
   SMTP_HOST:           z.string({ error: 'SMTP_HOST is required for sandbox/production mode' }),
@@ -55,6 +66,17 @@ const productionSchema = sandboxSchema.extend({
 
   // Google Maps (required in production only)
   GOOGLE_MAPS_API_KEY:   z.string({ error: 'GOOGLE_MAPS_API_KEY is required in production' }),
+
+  // Cloudflare R2 object storage (required in production only)
+  // R2 is S3-compatible — uses @aws-sdk/client-s3 with a custom endpoint.
+  // R2_ENDPOINT format: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+  // R2_PUBLIC_URL:       your public bucket URL (e.g. https://media.zolvex.in)
+  R2_ACCOUNT_ID:         z.string({ error: 'R2_ACCOUNT_ID is required in production' }),
+  R2_ACCESS_KEY_ID:      z.string({ error: 'R2_ACCESS_KEY_ID is required in production' }),
+  R2_SECRET_ACCESS_KEY:  z.string({ error: 'R2_SECRET_ACCESS_KEY is required in production' }),
+  R2_BUCKET:             z.string({ error: 'R2_BUCKET is required in production' }),
+  R2_ENDPOINT:           z.string({ error: 'R2_ENDPOINT is required in production' }),
+  R2_PUBLIC_URL:         z.string({ error: 'R2_PUBLIC_URL is required in production' }),
 });
 
 // Select schema based on PROVIDER_MODE — fail fast if credentials are missing
