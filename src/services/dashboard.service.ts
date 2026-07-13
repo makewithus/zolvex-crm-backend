@@ -6,7 +6,35 @@ const prisma = new PrismaClient();
  * Live KPI aggregates. All numbers come from the database.
  * No hardcoded values.
  */
-export const getDashboardKPIs = async (role: string, cityId?: string) => {
+export const getDashboardKPIs = async (role: string, cityId?: string, userId?: string) => {
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setUTCHours(0, 0, 0, 0);
+  const todayEnd   = new Date(now); todayEnd.setUTCHours(23, 59, 59, 999);
+
+  // Technician: see only their assigned jobs
+  if (role === 'Technician' && userId) {
+    const [assignedJobs, jobsToday, pendingJobs, completedJobs, upcomingJobs] = await Promise.all([
+      prisma.job.count({ where: { assigned_user_id: userId, status: { notIn: ['Cancelled', 'Completed'] } } }),
+      prisma.job.count({ where: { assigned_user_id: userId, scheduled_start: { gte: todayStart, lte: todayEnd }, status: { not: 'Cancelled' } } }),
+      prisma.job.count({ where: { assigned_user_id: userId, status: 'Pending' } }),
+      prisma.job.count({ where: { assigned_user_id: userId, status: 'Completed' } }),
+      prisma.job.count({ where: { assigned_user_id: userId, scheduled_start: { gte: now }, status: { notIn: ['Cancelled', 'Completed'] } } }),
+    ]);
+    return { assigned_jobs: assignedJobs, jobs_today: jobsToday, pending_jobs: pendingJobs, completed_jobs: completedJobs, upcoming_jobs: upcomingJobs };
+  }
+
+  // Field Staff: see only their assigned operational data
+  if (role === 'Field Staff' && userId) {
+    const [assignedJobs, jobsToday, pendingJobs, completedJobs] = await Promise.all([
+      prisma.job.count({ where: { assigned_user_id: userId, status: { notIn: ['Cancelled', 'Completed'] } } }),
+      prisma.job.count({ where: { assigned_user_id: userId, scheduled_start: { gte: todayStart, lte: todayEnd }, status: { not: 'Cancelled' } } }),
+      prisma.job.count({ where: { assigned_user_id: userId, status: 'Pending' } }),
+      prisma.job.count({ where: { assigned_user_id: userId, status: 'Completed' } }),
+    ]);
+    return { assigned_jobs: assignedJobs, jobs_today: jobsToday, pending_jobs: pendingJobs, completed_jobs: completedJobs };
+  }
+
+  // City Manager: scoped to their city
   const bookingWhere: any = {};
   const leadWhere: any = {};
   if (role === 'City Manager' && cityId) {
@@ -14,23 +42,13 @@ export const getDashboardKPIs = async (role: string, cityId?: string) => {
     leadWhere.city_id = cityId;
   }
 
-  const [
-    totalLeads,
-    totalCustomers,
-    activeBookings,
-    jobsToday,
-  ] = await Promise.all([
+  const [totalLeads, totalCustomers, activeBookings, jobsToday] = await Promise.all([
     prisma.lead.count({ where: leadWhere }),
     prisma.customer.count(),
-    prisma.booking.count({
-      where: { ...bookingWhere, status: { notIn: ['Cancelled', 'Completed'] } }
-    }),
+    prisma.booking.count({ where: { ...bookingWhere, status: { notIn: ['Cancelled', 'Completed'] } } }),
     prisma.job.count({
       where: {
-        scheduled_start: {
-          gte: new Date(new Date().setUTCHours(0, 0, 0, 0)),
-          lte: new Date(new Date().setUTCHours(23, 59, 59, 999)),
-        },
+        scheduled_start: { gte: todayStart, lte: todayEnd },
         status: { notIn: ['Cancelled'] },
       }
     }),
