@@ -11,8 +11,8 @@ router.use(protect);
 
 // Invoices are generally accessible to Admin, City Manager, and Support Agent
 // But creation/updates are limited to Admin and City Manager (or Finance)
-router.get('/', authorize('Super Admin', 'City Manager', 'Support Agent'), invoiceController.getInvoices);
-router.get('/:id', authorize('Super Admin', 'City Manager', 'Support Agent'), invoiceController.getInvoiceById);
+router.get('/', authorize('Super Admin', 'City Manager', 'Support Agent', 'Finance'), invoiceController.getInvoices);
+router.get('/:id', authorize('Super Admin', 'City Manager', 'Support Agent', 'Finance'), invoiceController.getInvoiceById);
 router.get('/:id/pdf', authorize('Super Admin', 'City Manager', 'Support Agent', 'Finance'), invoiceController.generatePdf);
 
 // POST manually drafted from booking
