@@ -13,6 +13,17 @@ model Role {
   users User[]
 }
 
+// Generic key-value store for global system configuration.
+// Never store secrets here — only operational settings (e.g. registered state, GSTIN).
+model SystemSetting {
+  key        String   @id           // e.g. "company_registered_state"
+  value      String                 // e.g. "Maharashtra"
+  label      String?                // Human-readable label
+  updated_by String?                // User ID who last updated
+  updated_at DateTime @updatedAt
+}
+
+
 model City {
   id           String        @id @default(uuid())
   name         String        @unique
