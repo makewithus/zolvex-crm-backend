@@ -3,6 +3,7 @@ import { AppError } from '../utils/AppError';
 import { BUSINESS_HOURS } from '../config/business-hours';
 import { checkAvailability } from './technician-availability.service';
 import { eventBus } from '../events/eventBus';
+import { calculateGST } from '../utils/gst.util';
 
 const prisma = new PrismaClient();
 
@@ -146,7 +147,11 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
     // 4. Generate Booking ID
     const booking_id = await generateBookingId(tx);
 
-    // 5. Create Booking
+    // 5. Pre-compute GST (async — reads from SystemSetting DB, cached 60 s)
+    const totalGstRate1 = pricingRule.cgst_percent + pricingRule.sgst_percent + pricingRule.igst_percent;
+    const gst1 = await calculateGST(pricingRule.base_price, totalGstRate1, bookingData.state || '');
+
+    // 6. Create Booking
     const booking = await tx.booking.create({
       data: {
         booking_id,
@@ -176,14 +181,14 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
         
         base_price: pricingRule.base_price,
         discount: 0,
-        cgst_percent: pricingRule.cgst_percent,
-        cgst_amount: (pricingRule.base_price * pricingRule.cgst_percent) / 100,
-        sgst_percent: pricingRule.sgst_percent,
-        sgst_amount: (pricingRule.base_price * pricingRule.sgst_percent) / 100,
-        igst_percent: pricingRule.igst_percent,
-        igst_amount: (pricingRule.base_price * pricingRule.igst_percent) / 100,
-        tax: ((pricingRule.base_price * pricingRule.cgst_percent) / 100) + ((pricingRule.base_price * pricingRule.sgst_percent) / 100) + ((pricingRule.base_price * pricingRule.igst_percent) / 100),
-        final_amount: pricingRule.base_price + ((pricingRule.base_price * pricingRule.cgst_percent) / 100) + ((pricingRule.base_price * pricingRule.sgst_percent) / 100) + ((pricingRule.base_price * pricingRule.igst_percent) / 100),
+        cgst_percent: gst1.cgst_percent,
+        cgst_amount: gst1.cgst_amount,
+        sgst_percent: gst1.sgst_percent,
+        sgst_amount: gst1.sgst_amount,
+        igst_percent: gst1.igst_percent,
+        igst_amount: gst1.igst_amount,
+        tax: gst1.total_tax,
+        final_amount: pricingRule.base_price + gst1.total_tax,
         
         notes: bookingData.notes,
         special_instructions: bookingData.special_instructions,
@@ -266,7 +271,11 @@ export const createBooking = async (data: any, userId: string) => {
     // 4. Generate Booking ID
     const booking_id = await generateBookingId(tx);
 
-    // 5. Create Booking
+    // 5. Pre-compute GST (async — reads from SystemSetting DB, cached 60 s)
+    const totalGstRate2 = pricingRule.cgst_percent + pricingRule.sgst_percent + pricingRule.igst_percent;
+    const gst2 = await calculateGST(pricingRule.base_price, totalGstRate2, data.state || '');
+
+    // 6. Create Booking
     const booking = await tx.booking.create({
       data: {
         booking_id,
@@ -291,14 +300,14 @@ export const createBooking = async (data: any, userId: string) => {
         service_name: service.name,
         base_price: pricingRule.base_price,
         discount: 0,
-        cgst_percent: pricingRule.cgst_percent,
-        cgst_amount: (pricingRule.base_price * pricingRule.cgst_percent) / 100,
-        sgst_percent: pricingRule.sgst_percent,
-        sgst_amount: (pricingRule.base_price * pricingRule.sgst_percent) / 100,
-        igst_percent: pricingRule.igst_percent,
-        igst_amount: (pricingRule.base_price * pricingRule.igst_percent) / 100,
-        tax: ((pricingRule.base_price * pricingRule.cgst_percent) / 100) + ((pricingRule.base_price * pricingRule.sgst_percent) / 100) + ((pricingRule.base_price * pricingRule.igst_percent) / 100),
-        final_amount: pricingRule.base_price + ((pricingRule.base_price * pricingRule.cgst_percent) / 100) + ((pricingRule.base_price * pricingRule.sgst_percent) / 100) + ((pricingRule.base_price * pricingRule.igst_percent) / 100),
+        cgst_percent: gst2.cgst_percent,
+        cgst_amount: gst2.cgst_amount,
+        sgst_percent: gst2.sgst_percent,
+        sgst_amount: gst2.sgst_amount,
+        igst_percent: gst2.igst_percent,
+        igst_amount: gst2.igst_amount,
+        tax: gst2.total_tax,
+        final_amount: pricingRule.base_price + gst2.total_tax,
         notes: data.notes,
         special_instructions: data.special_instructions,
         created_by: userId,
