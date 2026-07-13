@@ -7,6 +7,8 @@ import { PrismaClient, MediaType, MediaCategory } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 import { PROVIDER_MODE } from '../config/env';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -120,10 +122,20 @@ export const uploadJobMedia = async (
     const key = buildStorageKey(`jobs/${job_id}`, file.originalname);
     url = await uploadToR2(file.buffer, key, file.mimetype);
   } else {
-    // Development placeholder — not served, but consistent structure
-    const key = buildStorageKey(`dev-jobs/${job_id}`, file.originalname);
-    url = `/dev-media/${key}`;
-    logger.info(`[MediaService] DEV mode — file not uploaded. Placeholder URL: ${url}`);
+    // Development mode — save locally
+    const uploadDir = path.join(process.cwd(), 'uploads', 'dev-jobs', job_id);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    const ext = file.originalname.substring(file.originalname.lastIndexOf('.')) || '.jpg';
+    const filename = `${Date.now()}-${Math.floor(Math.random() * 1e6)}${ext}`;
+    const filePath = path.join(uploadDir, filename);
+    
+    fs.writeFileSync(filePath, file.buffer);
+    
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    url = `${backendUrl}/uploads/dev-jobs/${job_id}/${filename}`;
+    logger.info(`[MediaService] DEV mode — file saved locally: ${filePath}`);
   }
 
   const media = await prisma.jobMedia.create({
