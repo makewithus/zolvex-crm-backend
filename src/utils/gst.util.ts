@@ -8,7 +8,7 @@
  *   Intra-state (company_state == customer_state) → CGST + SGST, IGST = 0
  *   Inter-state  (company_state != customer_state) → IGST only, CGST = SGST = 0
  */
-import { getCompanyRegisteredState } from '../services/settings.service';
+
 
 export interface GSTBreakdown {
   cgst_percent: number;
@@ -27,38 +27,39 @@ export interface GSTBreakdown {
  * @param gstRate       Combined GST rate (e.g. 18 for 18%).
  * @param customerState The state recorded on the customer's booking address.
  */
-export const calculateGST = async (
+export const calculateGST = (
   baseAmount: number,
-  gstRate: number,
-  customerState: string
-): Promise<GSTBreakdown> => {
-  // DB read (cached for up to 60 s — see settings.service.ts)
-  const companyState = await getCompanyRegisteredState();
+  cgstRate: number,
+  sgstRate: number,
+  igstRate: number,
+  customerState: string,
+  companyState: string
+): GSTBreakdown => {
 
   const isIntraState =
     companyState.trim().toLowerCase() === customerState.trim().toLowerCase();
 
   if (isIntraState) {
-    const halfRate   = gstRate / 2;
-    const halfAmount = (baseAmount * halfRate) / 100;
+    const cgstAmount = (baseAmount * cgstRate) / 100;
+    const sgstAmount = (baseAmount * sgstRate) / 100;
     return {
-      cgst_percent: halfRate,
-      cgst_amount:  halfAmount,
-      sgst_percent: halfRate,
-      sgst_amount:  halfAmount,
+      cgst_percent: cgstRate,
+      cgst_amount:  cgstAmount,
+      sgst_percent: sgstRate,
+      sgst_amount:  sgstAmount,
       igst_percent: 0,
       igst_amount:  0,
-      total_tax:    halfAmount * 2,
+      total_tax:    cgstAmount + sgstAmount,
       is_intra_state: true,
     };
   } else {
-    const igstAmount = (baseAmount * gstRate) / 100;
+    const igstAmount = (baseAmount * igstRate) / 100;
     return {
       cgst_percent: 0,
       cgst_amount:  0,
       sgst_percent: 0,
       sgst_amount:  0,
-      igst_percent: gstRate,
+      igst_percent: igstRate,
       igst_amount:  igstAmount,
       total_tax:    igstAmount,
       is_intra_state: false,
