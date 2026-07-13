@@ -10,7 +10,7 @@ import { catchAsync } from '../../utils/catchAsync';
 const router = Router();
 router.use(protect);
 
-const customerRoles = ['Super Admin', 'City Manager', 'Support Agent'];
+const customerRoles = ['Super Admin', 'City Manager', 'Support Agent', 'Finance', 'Field Staff', 'Technician'];
 
 router.get('/', authorize(...customerRoles), catchAsync(getCustomers));
 router.get('/:id', authorize(...customerRoles), catchAsync(getCustomerById));
