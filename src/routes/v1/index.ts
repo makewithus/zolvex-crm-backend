@@ -16,6 +16,7 @@ import paymentRoutes from './payment.routes';
 import reportRoutes from './report.routes';
 import complaintRoutes from './complaint.routes';
 import quoteRoutes from './quote.routes';
+import settingsRoutes from './settings.routes';
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use('/payments', paymentRoutes);
 router.use('/reports', reportRoutes);
 router.use('/complaints', complaintRoutes);
 // router.use('/quotes', quoteRoutes); // ⏸️ DEFERRED (Sprint 11.2): Pending client workflow decision
+router.use('/settings', settingsRoutes);
 
 export default router;

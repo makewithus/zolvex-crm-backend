@@ -8,8 +8,7 @@ const router = Router();
 router.use(protect);
 
 // All dashboard data is read-only and role-scoped inside the service
-// Field Staff see only their own assigned data; Finance see financial views only
-const dashboardRoles = ['Super Admin', 'City Manager', 'Support Agent', 'Finance', 'Field Staff'];
+const dashboardRoles = ['Super Admin', 'City Manager', 'Support Agent', 'Finance', 'Technician', 'Field Staff'];
 
 router.get('/kpis',              authorize(...dashboardRoles), catchAsync(dashboardController.getKPIs));
 router.get('/activity',          authorize(...dashboardRoles), catchAsync(dashboardController.getActivity));
