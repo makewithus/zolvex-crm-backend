@@ -4,6 +4,7 @@ import { BUSINESS_HOURS } from '../config/business-hours';
 import { checkAvailability } from './technician-availability.service';
 import { eventBus } from '../events/eventBus';
 import { calculateGST } from '../utils/gst.util';
+import { getCompanyRegisteredState } from './settings.service';
 
 const prisma = new PrismaClient();
 
@@ -89,6 +90,10 @@ export const getBookingById = async (id: string) => {
 // Core atomic conversion logic
 export const convertLeadToBooking = async (leadId: string, bookingData: any, userId: string) => {
   validateSlot(bookingData.slot);
+
+  // Pre-fetch global setting outside of the transaction to avoid connection pool deadlocks
+  const companyState = await getCompanyRegisteredState();
+
   const booking = await prisma.$transaction(async (tx) => {
     // 1. Verify Lead
     const lead = await tx.lead.findUnique({
@@ -147,9 +152,19 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
     // 4. Generate Booking ID
     const booking_id = await generateBookingId(tx);
 
-    // 5. Pre-compute GST (async — reads from SystemSetting DB, cached 60 s)
-    const totalGstRate1 = pricingRule.cgst_percent + pricingRule.sgst_percent + pricingRule.igst_percent;
-    const gst1 = await calculateGST(pricingRule.base_price, totalGstRate1, bookingData.state || '');
+    // 5. Pre-compute GST
+    if (!(lead.city as any)?.state) {
+      throw new AppError("The selected city has no state configured. Please configure the city before creating bookings.", 400);
+    }
+    const bookingState = (lead.city as any).state;
+    const gst1 = calculateGST(
+      Number(pricingRule.base_price),
+      Number(pricingRule.cgst_percent),
+      Number(pricingRule.sgst_percent),
+      Number(pricingRule.igst_percent),
+      bookingState,
+      companyState
+    );
 
     // 6. Create Booking
     const booking = await tx.booking.create({
@@ -172,7 +187,7 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
         landmark: bookingData.landmark,
         city_name: bookingData.city_name,
         postal_code: bookingData.postal_code,
-        state: bookingData.state,
+        state: bookingState,
         country: bookingData.country,
         latitude: bookingData.latitude,
         longitude: bookingData.longitude,
@@ -223,6 +238,10 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
 
 export const createBooking = async (data: any, userId: string) => {
   validateSlot(data.slot);
+
+  // Pre-fetch global setting outside of the transaction to avoid connection pool deadlocks
+  const companyState = await getCompanyRegisteredState();
+
   const booking = await prisma.$transaction(async (tx) => {
     // 1. Verify Customer, Service, City
     const [customer, service, city] = await Promise.all([
@@ -271,9 +290,19 @@ export const createBooking = async (data: any, userId: string) => {
     // 4. Generate Booking ID
     const booking_id = await generateBookingId(tx);
 
-    // 5. Pre-compute GST (async — reads from SystemSetting DB, cached 60 s)
-    const totalGstRate2 = pricingRule.cgst_percent + pricingRule.sgst_percent + pricingRule.igst_percent;
-    const gst2 = await calculateGST(pricingRule.base_price, totalGstRate2, data.state || '');
+    // 5. Pre-compute GST
+    if (!(city as any).state) {
+      throw new AppError("The selected city has no state configured. Please configure the city before creating bookings.", 400);
+    }
+    const bookingState = (city as any).state;
+    const gst2 = calculateGST(
+      Number(pricingRule.base_price),
+      Number(pricingRule.cgst_percent),
+      Number(pricingRule.sgst_percent),
+      Number(pricingRule.igst_percent),
+      bookingState,
+      companyState
+    );
 
     // 6. Create Booking
     const booking = await tx.booking.create({
@@ -293,7 +322,7 @@ export const createBooking = async (data: any, userId: string) => {
         landmark: data.landmark,
         city_name: data.city_name,
         postal_code: data.postal_code,
-        state: data.state,
+        state: bookingState,
         country: data.country,
         latitude: data.latitude,
         longitude: data.longitude,
