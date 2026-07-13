@@ -27,6 +27,7 @@ model SystemSetting {
 model City {
   id           String        @id @default(uuid())
   name         String        @unique
+  state        String?
   is_active    Boolean       @default(true)
   users        User[]
   serviceAreas ServiceArea[]
