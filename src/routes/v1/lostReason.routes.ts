@@ -9,6 +9,6 @@ import { catchAsync } from '../../utils/catchAsync';
 const router = Router();
 router.use(protect);
 router.get('/', catchAsync(getLostReasons));
-router.post('/', authorize('Super Admin'), validateRequest(createLostReasonSchema), catchAsync(createLostReason));
+router.post('/', validateRequest(createLostReasonSchema), catchAsync(createLostReason));
 
 export default router;
