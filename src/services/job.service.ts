@@ -213,24 +213,23 @@ export const transitionJobStatus = async (
       });
     }
 
+    // 6. Auto Invoice Generation — inside transaction for true atomicity.
+    // If invoice creation fails, the ENTIRE transaction rolls back:
+    // Job stays at previous status, Booking stays at previous status.
+    // No orphan completed bookings can exist.
+    if (newStatus === 'Completed') {
+      // @ts-ignore
+      const mode = process.env.INVOICE_GENERATION_MODE || 'AUTO';
+      if (mode === 'AUTO') {
+        // autoIssue=true → Invoice created as 'Issued' so it is immediately visible
+        // to Reports financial queries (which filter status='Issued')
+        await invoiceService.generateInvoiceFromBookingTx(tx, job.booking_id, userId, true);
+      }
+    }
+
     return updatedJob;
   });
   
-  // Post-Transaction Triggers
-  if (newStatus === 'Completed') {
-    // Generate Invoice automatically unless configured for MANUAL mode
-    // @ts-ignore
-    const mode = process.env.INVOICE_GENERATION_MODE || 'AUTO';
-    if (mode === 'AUTO') {
-      try {
-        await invoiceService.generateInvoiceFromBooking(result.booking_id, userId);
-      } catch (error) {
-        console.error(`Failed to auto-generate invoice for booking ${result.booking_id}:`, error);
-        // Do not block job completion if invoice fails
-      }
-    }
-  }
-
   return result;
 };
 
