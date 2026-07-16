@@ -15,5 +15,8 @@ router.get('/activity',          authorize(...dashboardRoles), catchAsync(dashbo
 router.get('/upcoming-bookings', authorize(...dashboardRoles), catchAsync(dashboardController.getUpcomingBookings));
 router.get('/revenue',           authorize('Super Admin', 'Finance'), catchAsync(dashboardController.getRevenue));
 router.get('/pipeline',          authorize(...dashboardRoles), catchAsync(dashboardController.getPipeline));
+router.get('/recent-transactions', authorize(...dashboardRoles), catchAsync(dashboardController.getRecentTransactions));
+router.get('/service-distribution', authorize(...dashboardRoles), catchAsync(dashboardController.getServiceDistribution));
+
 
 export default router;

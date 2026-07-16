@@ -32,3 +32,16 @@ export const getPipeline = async (req: Request, res: Response) => {
   const data = await dashboardService.getPipelineSummary(user.role, user.cityId);
   sendSuccess(res, 200, 'Pipeline summary retrieved', data);
 };
+
+export const getRecentTransactions = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const data = await dashboardService.getRecentTransactions(user.role, user.cityId, limit);
+  sendSuccess(res, 200, 'Recent transactions retrieved', data);
+};
+
+export const getServiceDistribution = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const data = await dashboardService.getServiceDistribution(user.role, user.cityId);
+  sendSuccess(res, 200, 'Service distribution retrieved', data);
+};
