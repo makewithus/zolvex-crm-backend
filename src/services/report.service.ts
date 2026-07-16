@@ -53,7 +53,8 @@ export const getRevenueSummary = async (filters: ReportFilters) => {
 export const getOutstandingSummary = async (filters: ReportFilters) => {
   const where: Prisma.InvoiceWhereInput = {
     status: 'Issued',
-    balance_due: { gt: 0 }
+    balance_due: { gt: 0 },
+    ...buildDateFilter('issue_date', filters) // Reconcile: filter by invoice issue_date
   };
   if (filters.city_id) where.city_id = filters.city_id;
   if (filters.customer_phone) where.customer_phone = filters.customer_phone;
@@ -73,10 +74,15 @@ export const getOutstandingSummary = async (filters: ReportFilters) => {
 export const getCollectionsSummary = async (filters: ReportFilters) => {
   const where: Prisma.PaymentWhereInput = {
     payment_status: 'Completed',
-    ...buildDateFilter('payment_date', filters)
   };
-  // We can filter by city through invoice
-  if (filters.city_id) where.invoice = { city_id: filters.city_id };
+  
+  // Reconcile: we want collections for the invoices issued in this period, not payments made in this period.
+  const invoiceWhere: Prisma.InvoiceWhereInput = { ...buildDateFilter('issue_date', filters) };
+  if (filters.city_id) invoiceWhere.city_id = filters.city_id;
+  
+  if (Object.keys(invoiceWhere).length > 0) {
+    where.invoice = invoiceWhere;
+  }
 
   const aggregate = await prisma.payment.aggregate({
     where,
