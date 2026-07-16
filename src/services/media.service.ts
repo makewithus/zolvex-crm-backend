@@ -82,11 +82,17 @@ async function uploadToR2(
 // ── Internal: delete a file from R2 ────────────────────────────────────────
 
 export async function deleteFromR2(key: string): Promise<void> {
-  if (PROVIDER_MODE !== 'production') return; // No-op in dev
-  const bucket = process.env.R2_BUCKET!;
-  const client = getR2Client();
-  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-  logger.info(`[MediaService] Deleted from R2: ${key}`);
+  const hasR2Keys = !!(process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_BUCKET);
+  if (PROVIDER_MODE !== 'production' || !hasR2Keys) return; // No-op in dev or fallback mode
+  
+  try {
+    const bucket = process.env.R2_BUCKET!;
+    const client = getR2Client();
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    logger.info(`[MediaService] Deleted from R2: ${key}`);
+  } catch (err) {
+    logger.error(`[MediaService] Failed to delete from R2: ${key}`, err);
+  }
 }
 
 // ── Internal: generate a deterministic, collision-safe storage key ──────────
@@ -118,11 +124,13 @@ export const uploadJobMedia = async (
 ) => {
   let url: string;
 
-  if (PROVIDER_MODE === 'production') {
+  const hasR2Keys = !!(process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_BUCKET);
+
+  if (PROVIDER_MODE === 'production' && hasR2Keys) {
     const key = buildStorageKey(`jobs/${job_id}`, file.originalname);
     url = await uploadToR2(file.buffer, key, file.mimetype);
   } else {
-    // Development mode — save locally
+    // Development mode OR production mode without keys — fallback to local storage
     const uploadDir = path.join(process.cwd(), 'uploads', 'dev-jobs', job_id);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
