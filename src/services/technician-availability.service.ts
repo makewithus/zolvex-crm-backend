@@ -26,13 +26,15 @@ export const checkAvailability = async (
     return { available: false, reason: 'Technician is not assigned to this city' };
   }
 
-  // 2. Working Hours — derived from central config, not hardcoded
-  const startHour = getHours(startTime);
+  // 2. Working Hours — using Intl.DateTimeFormat to correctly handle the configured timezone
+  const getHourInTZ = (d: Date) => parseInt(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: BUSINESS_HOURS.TIMEZONE }).format(d), 10);
+  
+  const startHour = getHourInTZ(startTime);
   const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
-  const endHour = getHours(endTime);
+  const endHour = getHourInTZ(endTime);
   
   if (startHour < BUSINESS_HOURS.START_HOUR || endHour > BUSINESS_HOURS.END_HOUR || (endHour === BUSINESS_HOURS.END_HOUR && endTime.getMinutes() > 0)) {
-    return { available: false, reason: `Job falls outside of business hours (${BUSINESS_HOURS.START_HOUR}:00 - ${BUSINESS_HOURS.END_HOUR}:00)` };
+    return { available: false, reason: `Job falls outside of business hours (${BUSINESS_HOURS.START_HOUR}:00 - ${BUSINESS_HOURS.END_HOUR}:00 ${BUSINESS_HOURS.TIMEZONE})` };
   }
 
   // 3. Overlapping Jobs

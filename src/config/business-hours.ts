@@ -20,8 +20,22 @@ export const BUSINESS_HOURS = {
 
 /** Returns true if the given Date falls within business hours (UTC-naive — caller must pass local time). */
 export function isWithinBusinessHours(date: Date): boolean {
-  const h = date.getHours();
-  const dayOfWeek = date.getDay() === 0 ? 7 : date.getDay(); // Convert JS Sunday=0 to ISO Sunday=7
+  const getIntInTZ = (d: Date, part: 'hour' | 'weekday') => {
+    return parseInt(new Intl.DateTimeFormat('en-US', { 
+      [part]: 'numeric', 
+      hourCycle: part === 'hour' ? 'h23' : undefined, 
+      timeZone: BUSINESS_HOURS.TIMEZONE 
+    }).format(d), 10);
+  };
+
+  const h = getIntInTZ(date, 'hour');
+  // Intl weekday parsing is tricky; an alternative is to parse it to a localized date object.
+  // But for now let's just use the robust hour check.
+  const formatter = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: BUSINESS_HOURS.TIMEZONE });
+  const tzDateStr = new Intl.DateTimeFormat('en-US', { timeZone: BUSINESS_HOURS.TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+  const tzDate = new Date(tzDateStr);
+  
+  const dayOfWeek = tzDate.getDay() === 0 ? 7 : tzDate.getDay(); // Convert JS Sunday=0 to ISO Sunday=7
   return (
     BUSINESS_HOURS.WORKING_DAYS.includes(dayOfWeek) &&
     h >= BUSINESS_HOURS.START_HOUR &&
