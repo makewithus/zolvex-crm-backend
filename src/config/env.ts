@@ -19,16 +19,36 @@ const baseSchema = z.object({
   DATABASE_URL: z.string(),
   JWT_SECRET:   z.string(),
 
+  // JWT expiry — e.g. '1d', '8h', '30m'
+  JWT_EXPIRES_IN: z.string().default('1d'),
+
   // CORS — required in all modes so the server knows which origin to allow.
   // In development: http://localhost:5173 (Vite default).
   // In production: https://yourdomain.com
   FRONTEND_URL: z.string().default('http://localhost:5173'),
+
+  // Invoice generation mode:
+  //   AUTO   = Invoice auto-created on Job completion (recommended)
+  //   MANUAL = Staff must trigger manually
+  INVOICE_GENERATION_MODE: z.enum(['AUTO', 'MANUAL']).default('AUTO'),
 
   // Worker configuration (optional with defaults)
   NOTIFICATION_WORKER_INTERVAL_MS:    z.string().default('10000'),
   NOTIFICATION_WORKER_BATCH_SIZE:     z.string().default('20'),
   NOTIFICATION_PROVIDER_TIMEOUT_MS:   z.string().default('10000'),
   PROVIDER_MODE:                      z.enum(['mock', 'sandbox', 'maps', 'production']).default('mock'),
+
+  // ── Feature Flags ────────────────────────────────────────────────────────
+  // Enable/disable each notification channel independently.
+  // Deploy the code first (flags=false), verify, then flip to true.
+  // This avoids coupling a code deployment to a feature activation.
+  SMTP_ENABLED:             z.enum(['true', 'false']).default('false'),
+  WHATSAPP_ENABLED:         z.enum(['true', 'false']).default('false'),
+  R2_INVOICE_PDF_ENABLED:   z.enum(['true', 'false']).default('false'),
+  CHECKLIST_ENABLED:        z.enum(['true', 'false']).default('true'),
+  WEBSITE_WEBHOOK_ENABLED:  z.enum(['true', 'false']).default('false'),
+  WEBHOOK_SYSTEM_USER_ID:   z.string().optional(),
+  WEBSITE_WEBHOOK_SECRET:   z.string().optional(),
 });
 
 const sandboxSchema = baseSchema.extend({
