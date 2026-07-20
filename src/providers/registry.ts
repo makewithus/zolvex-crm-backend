@@ -209,15 +209,29 @@ export const getBreaker = (channel: NotificationChannel): CircuitBreaker | undef
  */
 export class ProviderFactory {
   static create(channel: NotificationChannel): NotificationProvider {
+    // Mock mode: all channels use MockProvider regardless of flags
     if (PROVIDER_MODE === 'mock') {
       return new MockProvider(channel);
     }
 
     switch (channel) {
-      case 'WHATSAPP': return new MetaWhatsAppProvider();
-      case 'EMAIL':    return new EmailProvider();
-      case 'SMS':      return new MockProvider('SMS'); // SMS live provider coming in Sprint 10.4
-      default:         return new MockProvider(channel);
+      case 'WHATSAPP':
+        // Only activate real provider if WHATSAPP_ENABLED=true
+        return process.env.WHATSAPP_ENABLED === 'true'
+          ? new MetaWhatsAppProvider()
+          : new MockProvider('WHATSAPP');
+
+      case 'EMAIL':
+        // Only activate real provider if SMTP_ENABLED=true
+        return process.env.SMTP_ENABLED === 'true'
+          ? new EmailProvider()
+          : new MockProvider('EMAIL');
+
+      case 'SMS':
+        return new MockProvider('SMS'); // SMS live provider coming in a future sprint
+
+      default:
+        return new MockProvider(channel);
     }
   }
 }

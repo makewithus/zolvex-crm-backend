@@ -84,19 +84,59 @@ const TEMPLATES_V1: Record<string, TemplateDefinition> = {
     render: (p) =>
       `*Lead Escalation* — ${p.manager_name}, a lead (${maskPhone(p.lead_phone)}) assigned to ${p.assigned_to} has not been followed up in 48 hours. Immediate review required.`
   },
+  // ── EMAIL CHANNEL TEMPLATES ───────────────────────────────────────────────
+  // Mirror of WhatsApp templates formatted for email.
+  // subject() is used as the email Subject header.
+  // render() is used as the plain-text body.
+
+  booking_reminder_24h_email_v1: {
+    channel: 'EMAIL',
+    requiredFields: ['customer_name', 'service_name', 'scheduled_date'],
+    subject: (p) => `Reminder: Your ${p.service_name} service is tomorrow`,
+    render: (p) =>
+      `Dear ${p.customer_name},\n\nThis is a reminder that your ${p.service_name} service is scheduled for ${formatDate(p.scheduled_date)}.\n\nPlease ensure someone is available at the premises.\n\nFor any changes or cancellations, please contact us as soon as possible.\n\nBest regards,\nZolvex Services`
+  },
+
+  invoice_overdue_reminder_email_v1: {
+    channel: 'EMAIL',
+    requiredFields: ['customer_name', 'invoice_number', 'balance_due', 'due_date'],
+    subject: (p) => `Action Required: Invoice ${p.invoice_number} is overdue`,
+    render: (p) =>
+      `Dear ${p.customer_name},\n\nThis is a reminder that invoice ${p.invoice_number} has an outstanding balance of ₹${formatAmount(p.balance_due)}, which was due on ${formatDate(p.due_date)}.\n\nPlease clear the outstanding amount at your earliest convenience.\n\nIf you have already made the payment, please disregard this message or contact us to update your records.\n\nBest regards,\nZolvex Services`
+  },
+
+  payment_receipt_email_v1: {
+    channel: 'EMAIL',
+    requiredFields: ['customer_name', 'payment_number', 'amount', 'invoice_number'],
+    subject: (p) => `Payment Received – Receipt ${p.payment_number}`,
+    render: (p) =>
+      `Dear ${p.customer_name},\n\nThank you! We have received your payment of ₹${formatAmount(p.amount)} (Receipt: ${p.payment_number}) against invoice ${p.invoice_number}.\n\n${Number(p.balance_due) > 0 ? `Remaining balance: ₹${formatAmount(p.balance_due)}.` : 'Your account is now fully settled.'}\n\nBest regards,\nZolvex Services`
+  },
+
+  job_assignment_alert_email_v1: {
+    channel: 'EMAIL',
+    requiredFields: ['technician_name', 'job_id', 'customer_name', 'scheduled_start', 'address'],
+    subject: (p) => `New Job Assignment: ${p.job_id}`,
+    render: (p) =>
+      `Hi ${p.technician_name},\n\nYou have been assigned a new job.\n\nJob ID: ${p.job_id}\nCustomer: ${p.customer_name}\nScheduled: ${formatDate(p.scheduled_start)}\nAddress: ${p.address}\n\nPlease confirm your acceptance. If you have any issues, contact your supervisor immediately.\n\nZolvex Operations Team`
+  },
 };
 
 // ── Template Code Alias Map (Phase 9 codes → versioned names) ───────────────
 // This allows Phase 9 to use short codes while rendering uses versioned names.
 const CODE_ALIAS: Record<string, string> = {
-  'BOOKING_REMINDER_24H':       'booking_reminder_24h_v1',
-  'INVOICE_OVERDUE_REMINDER':   'invoice_overdue_reminder_v1',
-  'PAYMENT_RECEIPT':            'payment_receipt_v1',
-  'JOB_ASSIGNMENT_ALERT':       'job_assignment_alert_v1',
-  'JOB_ACCEPTANCE_REMINDER':    'job_acceptance_reminder_v1',
-  'JOB_ESCALATION':             'job_escalation_v1',
-  'LEAD_FOLLOWUP_REMINDER':     'lead_followup_reminder_v1',
-  'LEAD_MANAGER_ESCALATION':    'lead_manager_escalation_v1',
+  'BOOKING_REMINDER_24H':             'booking_reminder_24h_v1',
+  'BOOKING_REMINDER_24H_EMAIL':       'booking_reminder_24h_email_v1',
+  'INVOICE_OVERDUE_REMINDER':         'invoice_overdue_reminder_v1',
+  'INVOICE_OVERDUE_REMINDER_EMAIL':   'invoice_overdue_reminder_email_v1',
+  'PAYMENT_RECEIPT':                  'payment_receipt_v1',
+  'PAYMENT_RECEIPT_EMAIL':            'payment_receipt_email_v1',
+  'JOB_ASSIGNMENT_ALERT':             'job_assignment_alert_v1',
+  'JOB_ASSIGNMENT_ALERT_EMAIL':       'job_assignment_alert_email_v1',
+  'JOB_ACCEPTANCE_REMINDER':          'job_acceptance_reminder_v1',
+  'JOB_ESCALATION':                   'job_escalation_v1',
+  'LEAD_FOLLOWUP_REMINDER':           'lead_followup_reminder_v1',
+  'LEAD_MANAGER_ESCALATION':          'lead_manager_escalation_v1',
 };
 
 // ── Version Dispatch ─────────────────────────────────────────────────────────
