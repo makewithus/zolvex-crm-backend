@@ -61,6 +61,9 @@ export const createLead = async (data: any, created_by: string) => {
       }
     });
     return lead;
+  }, {
+    maxWait: 5000,
+    timeout: 10000
   });
 
   // Emit event for Sprint 9.3 Operations Automations
@@ -114,11 +117,46 @@ export const updateLead = async (id: string, data: any, changed_by: string) => {
     }
 
     return updated;
+  }, {
+    maxWait: 5000,
+    timeout: 10000
   });
 };
 
 export const createLeadNote = async (lead_id: string, note_text: string, created_by: string) => {
-  return prisma.leadNote.create({
+  const note = await prisma.leadNote.create({
     data: { lead_id, note_text, created_by }
   });
+
+  // ── Stage Rule: Note added on a New lead → auto-advance to Contacted ────
+  // Simple if-then only. Non-blocking — failure never affects note creation.
+  try {
+    await applyStageRulesAfterNote(lead_id, created_by);
+  } catch {
+    // Silently ignore — stage rule failure must never break note creation
+  }
+
+  return note;
+};
+
+/**
+ * STAGE RULES (simple hardcoded if-then, no rule engine)
+ * Rule 1: If lead is 'New' and a note is added → advance to 'Contacted'
+ * Rules are ADDITIVE and NON-BLOCKING. Never gate any workflow.
+ */
+const applyStageRulesAfterNote = async (lead_id: string, changed_by: string): Promise<void> => {
+  const lead = await prisma.lead.findUnique({ where: { id: lead_id }, select: { status: true } });
+  if (!lead) return;
+
+  if (lead.status === 'New') {
+    await prisma.$transaction(async (tx) => {
+      await tx.lead.update({ where: { id: lead_id }, data: { status: 'Contacted' } });
+      await tx.leadHistory.create({
+        data: { lead_id, from_stage: 'New', to_stage: 'Contacted', changed_by }
+      });
+    }, {
+      maxWait: 5000,
+      timeout: 10000
+    });
+  }
 };

@@ -11,6 +11,11 @@ export const SETTING_KEYS = {
   COMPANY_ADDRESS:          'company_address',
   COMPANY_EMAIL:            'company_email',
   COMPANY_PHONE:            'company_phone',
+  // New settings (Sprint 12 batch)
+  COMPANY_SUPPORT_PHONE:    'company_support_phone',
+  COMPANY_SUPPORT_EMAIL:    'company_support_email',
+  INVOICE_FOOTER_NOTE:      'invoice_footer_note',
+  BOOKING_ADVANCE_DAYS:     'booking_advance_days',  // How many days ahead bookings can be scheduled
 } as const;
 
 // Default values used when the DB row doesn't exist yet (first boot)
@@ -21,6 +26,10 @@ const DEFAULTS: Record<string, string> = {
   [SETTING_KEYS.COMPANY_ADDRESS]:          '',
   [SETTING_KEYS.COMPANY_EMAIL]:            '',
   [SETTING_KEYS.COMPANY_PHONE]:            '',
+  [SETTING_KEYS.COMPANY_SUPPORT_PHONE]:    '',
+  [SETTING_KEYS.COMPANY_SUPPORT_EMAIL]:    'support@zolvex.in',
+  [SETTING_KEYS.INVOICE_FOOTER_NOTE]:      'Thank you for choosing Zolvex Services.',
+  [SETTING_KEYS.BOOKING_ADVANCE_DAYS]:     '30',
 };
 
 /**

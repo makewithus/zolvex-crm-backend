@@ -367,25 +367,48 @@ export const getPipelineSummary = async (role: string, cityId?: string) => {
  * Recent Completed Bookings for Transactions Table
  */
 export const getRecentTransactions = async (role: string, cityId?: string, limit = 5) => {
-  const where: any = { status: 'Completed' };
-  if (role === 'City Manager' && cityId) where.city_id = cityId;
+  const where: any = { status: 'Issued' };
+  // City Manager scope via the city_id field that is denormalized on Invoice
+  if (role === 'City Manager' && cityId) {
+    where.city_id = cityId;
+  }
 
-  return prisma.booking.findMany({
+  const invoices = await prisma.invoice.findMany({
     where,
-    orderBy: { updated_at: 'desc' },
+    orderBy: { issue_date: 'desc' },
     take: limit,
     select: {
       id: true,
+      invoice_number: true,
       booking_id: true,
       customer_name: true,
+      customer_phone: true,
       service_name: true,
-      status: true,
+      base_amount: true,
       final_amount: true,
-      base_price: true,
-      updated_at: true,
+      payment_status: true,
+      balance_due: true,
+      issue_date: true,
     }
   });
+
+  // Map to the shape the frontend "Recent Invoices" widget consumes
+  return invoices.map(inv => ({
+    id: inv.id,
+    booking_id: inv.booking_id,
+    customer_name: inv.customer_name,
+    customer_phone: inv.customer_phone,
+    service_name: inv.service_name,
+    base_price: inv.base_amount,
+    final_amount: inv.final_amount,
+    payment_status: inv.payment_status,
+    balance_due: inv.balance_due,
+    status: inv.payment_status,
+    invoice_number: inv.invoice_number,
+    updated_at: inv.issue_date,
+  }));
 };
+
 
 /**
  * Service Distribution — groups ALL bookings by service_name.

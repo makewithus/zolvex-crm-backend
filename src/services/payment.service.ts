@@ -124,6 +124,9 @@ export const recordPayment = async (data: {
     });
 
     return payment;
+  }, {
+    maxWait: 5000,
+    timeout: 15000
   });
   // Publish AFTER the transaction commits — handler sees consistent DB state
   eventBus.publish('Payment.Received', { payment_id: payment.id });
