@@ -24,6 +24,9 @@ export const getInvoiceNextSequence = async () => {
       });
     }
     return sequence.value;
+  }, {
+    maxWait: 5000,
+    timeout: 10000
   });
   return seq;
 };
@@ -188,6 +191,9 @@ export const generateInvoiceFromBookingTx = async (
 export const generateInvoiceFromBooking = async (bookingId: string, userId: string, manualIssueDate?: Date, manualDueDate?: Date) => {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     return generateInvoiceFromBookingTx(tx, bookingId, userId, false, manualIssueDate, manualDueDate);
+  }, {
+    maxWait: 5000,
+    timeout: 10000
   });
 };
 
@@ -229,6 +235,9 @@ export const updateInvoiceStatus = async (id: string, newStatus: InvoiceStatus, 
     });
 
     return updated;
+  }, {
+    maxWait: 5000,
+    timeout: 10000
   });
 };
 

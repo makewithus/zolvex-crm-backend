@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import * as invoiceService from '../services/invoice.service';
+import * as settingsService from '../services/settings.service';
 
 const prisma = new PrismaClient();
 
@@ -78,6 +79,7 @@ export const generatePdf = async (req: Request, res: Response, next: NextFunctio
   try {
     const invoice = await invoiceService.getInvoiceById(req.params.id as string);
     const booking = await prisma.booking.findUnique({ where: { id: invoice.booking_id } });
+    const settings = await settingsService.getAllSettings();
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const PDFDocument = require('pdfkit');
@@ -90,10 +92,14 @@ export const generatePdf = async (req: Request, res: Response, next: NextFunctio
     
     // Header
     doc.fontSize(20).font('Helvetica-Bold').text('ZOLVEX', 50, 45);
-    doc.fontSize(10).font('Helvetica').text('Zolvex Services Pvt. Ltd.', 50, 70);
-    doc.text('GSTIN: 27AABCZ1234D1Z5', 50, 85);
-    doc.text('123 Tech Park, Cyber City', 50, 100);
-    doc.text('Email: support@zolvex.com | Phone: +91 9999999999', 50, 115);
+    doc.fontSize(10).font('Helvetica').text(settings.company_name || 'Zolvex Services', 50, 70);
+    if (settings.company_gstin) doc.text(`GSTIN: ${settings.company_gstin}`, 50, 85);
+    if (settings.company_address) doc.text(settings.company_address, 50, 100);
+    
+    const contactInfo = [];
+    if (settings.company_support_email) contactInfo.push(`Email: ${settings.company_support_email}`);
+    if (settings.company_support_phone) contactInfo.push(`Phone: ${settings.company_support_phone}`);
+    if (contactInfo.length > 0) doc.text(contactInfo.join(' | '), 50, 115);
     
     // INVOICE text on right
     doc.fontSize(24).font('Helvetica-Bold').fillColor('#333333').text('INVOICE', 400, 45, { align: 'right' });
@@ -192,11 +198,11 @@ export const generatePdf = async (req: Request, res: Response, next: NextFunctio
     // Footer
     const footerY = 700;
     doc.moveTo(50, footerY).lineTo(545, footerY).strokeColor('#e5e7eb').stroke();
-    doc.font('Helvetica-Bold').fontSize(10).text('Terms & Conditions', 50, footerY + 15);
-    doc.font('Helvetica').fontSize(8)
-      .text('1. Payment is due within the stated due date.', 50, footerY + 30)
-      .text('2. Please include invoice number on your check.', 50, footerY + 42)
-      .text('3. Late payments may be subject to additional fees.', 50, footerY + 54);
+    
+    if (settings.invoice_footer_note) {
+      doc.font('Helvetica-Bold').fontSize(10).text('Note', 50, footerY + 15);
+      doc.font('Helvetica').fontSize(8).text(settings.invoice_footer_note, 50, footerY + 30, { width: 300 });
+    }
       
     doc.font('Helvetica-Bold').fontSize(10).text('Authorized Signature', 400, footerY + 15, { align: 'right' });
     doc.moveTo(400, footerY + 50).lineTo(545, footerY + 50).strokeColor('#000000').stroke();
