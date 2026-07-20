@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import * as jobController from '../../controllers/job.controller';
+import * as checklistCtrl from '../../controllers/checklist.controller';
 import { protect } from '../../middlewares/auth.middleware';
 import { authorize } from '../../middlewares/rbac.middleware';
 import { validateRequest } from '../../middlewares/validate.middleware';
 import * as jobValidation from '../../validations/job.validation';
 import { upload } from '../../middlewares/upload.middleware';
+import { catchAsync } from '../../utils/catchAsync';
 
 const router = Router();
 
@@ -25,5 +27,12 @@ router.patch('/:id/reschedule', authorize('Super Admin', 'City Manager'), valida
 
 // Media upload
 router.post('/:id/photos', authorize('Super Admin', 'City Manager', 'Field Staff'), upload.array('photos', 5), jobController.uploadJobPhotos);
+
+// ── Job Checklists (informational only — never block job completion) ──────────
+const checklistRoles = ['Super Admin', 'City Manager', 'Support Agent', 'Field Staff', 'Technician'];
+router.get('/:jobId/checklists',                    authorize(...checklistRoles), catchAsync(checklistCtrl.getJobChecklists));
+router.post('/:jobId/checklists',                   authorize('Super Admin', 'City Manager', 'Support Agent'), catchAsync(checklistCtrl.applyChecklist));
+router.patch('/:jobId/checklists/items/:itemId',    authorize(...checklistRoles), catchAsync(checklistCtrl.updateChecklistItem));
+router.delete('/:jobId/checklists/:checklistId',    authorize('Super Admin', 'City Manager'), catchAsync(checklistCtrl.removeChecklist));
 
 export default router;

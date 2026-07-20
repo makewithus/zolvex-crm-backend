@@ -1,6 +1,8 @@
 import { PrismaClient, JobStatus, Prisma, JobPriority, JobFailureReason } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import * as invoiceService from './invoice.service';
+import { generateAndUploadInvoicePdf } from './invoicePdf.service';
+import { env } from '../config/env';
 
 const prisma = new PrismaClient();
 
@@ -64,6 +66,9 @@ export const createJobFromBooking = async (
     });
 
     return job;
+  }, {
+    maxWait: 5000,
+    timeout: 10000
   });
 };
 
@@ -218,8 +223,7 @@ export const transitionJobStatus = async (
     // Job stays at previous status, Booking stays at previous status.
     // No orphan completed bookings can exist.
     if (newStatus === 'Completed') {
-      // @ts-ignore
-      const mode = process.env.INVOICE_GENERATION_MODE || 'AUTO';
+      const mode = env.INVOICE_GENERATION_MODE;
       if (mode === 'AUTO') {
         // autoIssue=true → Invoice created as 'Issued' so it is immediately visible
         // to Reports financial queries (which filter status='Issued')
@@ -228,8 +232,27 @@ export const transitionJobStatus = async (
     }
 
     return updatedJob;
+  }, {
+    maxWait: 5000,
+    timeout: 15000
   });
-  
+
+  // ── R2 Invoice PDF Upload (outside transaction — async, non-blocking) ──────
+  // If AUTO mode generated an invoice, attempt to upload PDF to R2.
+  // This runs AFTER the transaction commits. Failure here does NOT affect
+  // job completion or invoice creation — pdf_url simply stays null.
+  if (newStatus === 'Completed' && env.INVOICE_GENERATION_MODE === 'AUTO') {
+    const createdInvoice = await prisma.invoice.findFirst({
+      where: { booking_id: result.booking_id },
+      orderBy: { created_at: 'desc' },
+      select: { id: true }
+    });
+    if (createdInvoice) {
+      // Fire-and-forget — do not await
+      generateAndUploadInvoicePdf(createdInvoice.id).catch(() => {});
+    }
+  }
+
   return result;
 };
 

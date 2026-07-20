@@ -230,6 +230,9 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
     });
 
     return booking;
+  }, {
+    maxWait: 5000,
+    timeout: 15000
   });
   // Publish AFTER the transaction commits — handler sees consistent DB state
   eventBus.publish('Booking.Created', { booking_id: booking.id, scheduled_date: booking.scheduled_date });
@@ -349,6 +352,9 @@ export const createBooking = async (data: any, userId: string) => {
     });
 
     return booking;
+  }, {
+    maxWait: 5000,
+    timeout: 15000
   });
   // Publish AFTER the transaction commits — handler sees consistent DB state
   eventBus.publish('Booking.Created', { booking_id: booking.id, scheduled_date: booking.scheduled_date });
@@ -433,6 +439,9 @@ export const updateBookingStatus = async (id: string, newStatus: string, userId:
     });
 
     return updated;
+  }, {
+    maxWait: 5000,
+    timeout: 15000
   });
 };
 
@@ -495,6 +504,9 @@ export const rescheduleBooking = async (id: string, data: any, userId: string) =
     }
 
     return updated;
+  }, {
+    maxWait: 5000,
+    timeout: 15000
   });
 };
 
@@ -548,5 +560,8 @@ export const cancelBooking = async (id: string, cancel_reason: string, userId: s
     }
 
     return updated;
+  }, {
+    maxWait: 5000,
+    timeout: 15000
   });
 };
