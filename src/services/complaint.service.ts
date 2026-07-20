@@ -252,10 +252,45 @@ export class ComplaintService {
     return prisma.complaint.findUniqueOrThrow({
       where: { id },
       include: {
-        timeline: { orderBy: { changed_at: 'asc' } },
+        timeline: {
+          orderBy: { changed_at: 'asc' },
+          include: {
+            changedByUser: { select: { id: true, name: true } }
+          }
+        },
+        notes: {
+          orderBy: { created_at: 'asc' },
+          include: {
+            createdByUser: { select: { id: true, name: true } }
+          }
+        },
         customer: true,
         assignedTo: true,
+        job: {
+          select: {
+            id: true,
+            job_id: true,
+            status: true,
+            scheduled_start: true,
+            assignedUser: { select: { id: true, name: true } }
+          }
+        },
       },
+    });
+  }
+
+  /**
+   * [ADDITIVE] Adds a progress note to a complaint (does NOT change status)
+   */
+  public static async addNote(id: string, note: string, created_by: string) {
+    // Validate complaint exists
+    const complaint = await prisma.complaint.findUniqueOrThrow({ where: { id } });
+    // Notes are only meaningful while InProgress, but we allow any non-Closed status
+    if (complaint.status === 'Closed') {
+      throw new Error('Cannot add notes to a Closed complaint');
+    }
+    return prisma.complaintNote.create({
+      data: { complaint_id: id, note, created_by },
     });
   }
 }

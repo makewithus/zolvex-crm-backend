@@ -119,9 +119,8 @@ export class ComplaintController {
 
       return res.json(complaint);
     } catch (error: any) {
-      if (error.message.includes('Invalid complaint status transition')) {
-        return res.status(400).json({ error: error.message });
-      }
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Complaint not found' });
+      if (error.message?.includes('Invalid complaint status transition')) return res.status(400).json({ error: error.message });
       logger.error('Error assigning complaint:', error);
       return res.status(500).json({ error: 'Failed to assign complaint' });
     }
@@ -129,12 +128,17 @@ export class ComplaintController {
 
   static async startComplaint(req: any, res: Response) {
     try {
-      const complaint = await ComplaintService.startComplaint(req.params.id, req.user!.id);
+      const user = req.user!;
+      if (['Technician', 'Support Agent'].includes(user.role)) {
+        const existing = await prisma.complaint.findUniqueOrThrow({ where: { id: req.params.id } });
+        if (existing.assigned_to !== user.id) return res.status(403).json({ error: 'Forbidden: Not assigned to you' });
+      }
+
+      const complaint = await ComplaintService.startComplaint(req.params.id, user.id);
       return res.json(complaint);
     } catch (error: any) {
-      if (error.message.includes('Invalid complaint status transition')) {
-        return res.status(400).json({ error: error.message });
-      }
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Complaint not found' });
+      if (error.message?.includes('Invalid complaint status transition')) return res.status(400).json({ error: error.message });
       logger.error('Error starting complaint:', error);
       return res.status(500).json({ error: 'Failed to start complaint' });
     }
@@ -145,17 +149,17 @@ export class ComplaintController {
       const { error, value } = resolveComplaintSchema.validate(req.body);
       if (error) return res.status(400).json({ error: error.details[0].message });
 
-      const complaint = await ComplaintService.resolveComplaint(
-        req.params.id,
-        value.resolution_note,
-        req.user!.id
-      );
+      const user = req.user!;
+      if (['Technician', 'Support Agent'].includes(user.role)) {
+        const existing = await prisma.complaint.findUniqueOrThrow({ where: { id: req.params.id } });
+        if (existing.assigned_to !== user.id) return res.status(403).json({ error: 'Forbidden: Not assigned to you' });
+      }
 
+      const complaint = await ComplaintService.resolveComplaint(req.params.id, value.resolution_note, user.id);
       return res.json(complaint);
     } catch (error: any) {
-      if (error.message.includes('Invalid complaint status transition')) {
-        return res.status(400).json({ error: error.message });
-      }
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Complaint not found' });
+      if (error.message?.includes('Invalid complaint status transition')) return res.status(400).json({ error: error.message });
       logger.error('Error resolving complaint:', error);
       return res.status(500).json({ error: 'Failed to resolve complaint' });
     }
@@ -166,17 +170,11 @@ export class ComplaintController {
       const { error, value } = escalateComplaintSchema.validate(req.body);
       if (error) return res.status(400).json({ error: error.details[0].message });
 
-      const complaint = await ComplaintService.escalateComplaint(
-        req.params.id,
-        value.reason,
-        req.user!.id
-      );
-
+      const complaint = await ComplaintService.escalateComplaint(req.params.id, value.reason, req.user!.id);
       return res.json(complaint);
     } catch (error: any) {
-      if (error.message.includes('Invalid complaint status transition')) {
-        return res.status(400).json({ error: error.message });
-      }
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Complaint not found' });
+      if (error.message?.includes('Invalid complaint status transition')) return res.status(400).json({ error: error.message });
       logger.error('Error escalating complaint:', error);
       return res.status(500).json({ error: 'Failed to escalate complaint' });
     }
@@ -187,19 +185,37 @@ export class ComplaintController {
       const { error, value } = closeComplaintSchema.validate(req.body);
       if (error) return res.status(400).json({ error: error.details[0].message });
 
-      const complaint = await ComplaintService.closeComplaint(
-        req.params.id,
-        req.user!.id,
-        value.note
-      );
-
+      const complaint = await ComplaintService.closeComplaint(req.params.id, req.user!.id, value.note);
       return res.json(complaint);
     } catch (error: any) {
-      if (error.message.includes('Invalid complaint status transition')) {
-        return res.status(400).json({ error: error.message });
-      }
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Complaint not found' });
+      if (error.message?.includes('Invalid complaint status transition')) return res.status(400).json({ error: error.message });
       logger.error('Error closing complaint:', error);
       return res.status(500).json({ error: 'Failed to close complaint' });
+    }
+  }
+
+  /**
+   * [ADDITIVE] POST /:id/notes — Progress note; does NOT change status
+   */
+  static async addNote(req: any, res: Response) {
+    try {
+      const { note } = req.body;
+      if (!note || !note.trim()) return res.status(400).json({ error: 'note is required' });
+
+      const user = req.user!;
+      if (['Technician', 'Support Agent'].includes(user.role)) {
+        const existing = await prisma.complaint.findUniqueOrThrow({ where: { id: req.params.id } });
+        if (existing.assigned_to !== user.id) return res.status(403).json({ error: 'Forbidden: Not assigned to you' });
+      }
+
+      const result = await ComplaintService.addNote(req.params.id, note.trim(), user.id);
+      return res.status(201).json(result);
+    } catch (error: any) {
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Complaint not found' });
+      if (error.message?.includes('Cannot add notes to a Closed complaint')) return res.status(400).json({ error: error.message });
+      logger.error('Error adding complaint note:', error);
+      return res.status(500).json({ error: 'Failed to add note' });
     }
   }
 }

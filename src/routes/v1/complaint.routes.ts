@@ -50,4 +50,11 @@ router.post(
   ComplaintController.closeComplaint
 );
 
+// [ADDITIVE] POST /:id/notes — Progress notes; does NOT affect workflow or status
+router.post(
+  '/:id/notes',
+  authorize('Super Admin', 'City Manager', 'Technician', 'Support Agent'),
+  ComplaintController.addNote
+);
+
 export default router;
