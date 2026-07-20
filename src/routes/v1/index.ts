@@ -17,6 +17,9 @@ import reportRoutes from './report.routes';
 import complaintRoutes from './complaint.routes';
 import quoteRoutes from './quote.routes';
 import settingsRoutes from './settings.routes';
+import checklistRoutes from './checklist.routes';
+import feedbackRoutes from './feedback.routes';
+import webhookRoutes from './webhook.routes';
 
 const router = Router();
 
@@ -42,5 +45,8 @@ router.use('/reports', reportRoutes);
 router.use('/complaints', complaintRoutes);
 // router.use('/quotes', quoteRoutes); // ⏸️ DEFERRED (Sprint 11.2): Pending client workflow decision
 router.use('/settings', settingsRoutes);
+router.use('/checklists', checklistRoutes);  // Checklist template management
+router.use('/feedback', feedbackRoutes);
+router.use('/webhook', webhookRoutes);   // Public endpoint — no protect middleware
 
 export default router;
