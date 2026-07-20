@@ -65,7 +65,9 @@ model User {
   assignedJobs      Job[]               @relation("AssignedJobs")
   Payment           Payment[]
   PaymentHistory    PaymentHistory[]
-  AssignedComplaints Complaint[] @relation("AssignedComplaints")
+  AssignedComplaints Complaint[]       @relation("AssignedComplaints")
+  complaintTimelines ComplaintTimeline[]
+  complaintNotes     ComplaintNote[]
 }
 
 model StaffAvailability {
@@ -188,6 +190,8 @@ model Customer {
   Payment    Payment[]
   Complaints Complaint[]
   Quotes     Quote[]
+  addresses  CustomerAddress[]
+  feedbacks  CustomerFeedback[]
 }
 
 enum BookingStatus {
@@ -274,8 +278,9 @@ model Booking {
   cancelled_at DateTime?
 
   history BookingHistory[]
-  job     Job?
+  job        Job?
   Complaints Complaint[]
+  feedbacks  CustomerFeedback[]
 
   @@index([booking_id])
   @@index([status])
@@ -390,6 +395,7 @@ model Job {
   assignment_history JobAssignmentHistory[]
   media              JobMedia[]
   Complaints         Complaint[]
+  feedbacks          CustomerFeedback[]
 
   @@index([job_id])
   @@index([status])
@@ -556,6 +562,8 @@ model Invoice {
   pricing_snapshot_json Json?
 
   status InvoiceStatus @default(Draft)
+
+  pdf_url    String?   // Populated after R2 upload (null = regenerate on demand)
 
   created_by String
   updated_by String?
@@ -798,24 +806,39 @@ model Complaint {
   updated_at      DateTime         @updatedAt
   
   timeline        ComplaintTimeline[]
+  notes           ComplaintNote[]
   
   @@index([customer_id])
   @@index([status])
   @@index([assigned_to])
   @@index([booking_id])
+  @@index([job_id])
 }
 
 model ComplaintTimeline {
-  id            String          @id @default(uuid())
-  complaint_id  String
-  complaint     Complaint       @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
-  from_status   ComplaintStatus?
-  to_status     ComplaintStatus
-  note          String?
-  changed_by    String
-  changed_at    DateTime        @default(now())
+  id              String          @id @default(uuid())
+  complaint_id    String
+  complaint       Complaint       @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  from_status     ComplaintStatus?
+  to_status       ComplaintStatus
+  note            String?
+  changed_by      String
+  changedByUser   User            @relation(fields: [changed_by], references: [id])
+  changed_at      DateTime        @default(now())
 }
 
+// Additive: Progress notes during InProgress — does NOT affect status machine
+model ComplaintNote {
+  id              String    @id @default(uuid())
+  complaint_id    String
+  complaint       Complaint @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  note            String
+  created_by      String
+  createdByUser   User      @relation(fields: [created_by], references: [id])
+  created_at      DateTime  @default(now())
+
+  @@index([complaint_id])
+}
 
 // ----------------------------------------------------------------------
 // PHASE 11: OPTIONAL MODULES (Sprint 11.2: Quote Management)
@@ -905,6 +928,128 @@ model QuoteLineItem {
   @@index([quote_id])
 }
 
+// ----------------------------------------------------------------------
+// FEATURE: Customer Feedback
+// Submitted by staff on behalf of the customer after service completion.
+// Linked optionally to a Booking or Job for context.
+// Purely informational — does not affect any workflow.
+// ----------------------------------------------------------------------
+
+model CustomerFeedback {
+  id          String   @id @default(uuid())
+
+  customer_id String
+  customer    Customer @relation(fields: [customer_id], references: [id])
+
+  booking_id  String?  // Optional context reference
+  booking     Booking? @relation(fields: [booking_id], references: [id])
+
+  job_id      String?  // Optional context reference
+  job         Job?     @relation(fields: [job_id], references: [id])
+
+  rating      Int      // 1–5 star rating
+  comment     String?  // Optional free-text feedback
+
+  submitted_by String  // User ID who logged the feedback
+  created_at   DateTime @default(now())
+
+  @@index([customer_id])
+  @@index([booking_id])
+  @@index([rating])
+}
+
+// ----------------------------------------------------------------------
+// FEATURE: Customer Saved Addresses
+// One customer can have multiple saved addresses (home, office, site, etc.)
+// Booking creation can optionally pre-fill from a saved address.
+// No FK on Booking — pre-fill is a frontend convenience, not a DB constraint.
+// ----------------------------------------------------------------------
+
+model CustomerAddress {
+  id          String   @id @default(uuid())
+  customer_id String
+  customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  label       String   // e.g. "Home", "Office", "Site 1"
+  address     String   // Full address string
+  city        String?
+  pincode     String?
+  is_default  Boolean  @default(false)
+
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([customer_id])
+}
+
+
+// ----------------------------------------------------------------------
+// FEATURE: Job Checklist Templates
+// Templates are reusable definitions (e.g., "AC Service Checklist")
+// When applied to a job, a JobChecklist instance is created.
+// Checklists are INFORMATIONAL ONLY — they never block job completion.
+// ----------------------------------------------------------------------
+
+model ChecklistTemplate {
+  id          String                  @id @default(uuid())
+  name        String                  // e.g. "AC Deep Clean Checklist"
+  description String?
+  service_id  String?                 // Optional: link to a specific service
+  is_active   Boolean                 @default(true)
+
+  created_by  String
+  created_at  DateTime                @default(now())
+  updated_at  DateTime                @updatedAt
+
+  items       ChecklistTemplateItem[]
+  job_checklists JobChecklist[]
+
+  @@index([service_id])
+}
+
+model ChecklistTemplateItem {
+  id          String            @id @default(uuid())
+  template_id String
+  template    ChecklistTemplate @relation(fields: [template_id], references: [id], onDelete: Cascade)
+
+  label       String            // e.g. "Check refrigerant level"
+  sort_order  Int               @default(0)
+  is_required Boolean           @default(false) // For reporting — never blocks job completion
+
+  @@index([template_id])
+}
+
+model JobChecklist {
+  id          String            @id @default(uuid())
+  job_id      String
+  template_id String
+  template    ChecklistTemplate @relation(fields: [template_id], references: [id])
+
+  applied_at  DateTime          @default(now())
+  applied_by  String
+
+  items       JobChecklistItem[]
+
+  @@unique([job_id, template_id])  // One template applied once per job
+  @@index([job_id])
+}
+
+model JobChecklistItem {
+  id           String       @id @default(uuid())
+  checklist_id String
+  checklist    JobChecklist @relation(fields: [checklist_id], references: [id], onDelete: Cascade)
+
+  label        String
+  sort_order   Int          @default(0)
+  is_required  Boolean      @default(false)
+
+  is_checked   Boolean      @default(false)
+  checked_by   String?
+  checked_at   DateTime?
+  notes        String?
+
+  @@index([checklist_id])
+}
 model QuoteTimeline {
   id          String      @id @default(uuid())
   quote_id    String
