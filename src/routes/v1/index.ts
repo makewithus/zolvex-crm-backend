@@ -20,6 +20,7 @@ import settingsRoutes from './settings.routes';
 import checklistRoutes from './checklist.routes';
 import feedbackRoutes from './feedback.routes';
 import webhookRoutes from './webhook.routes';
+import whatsappRoutes from './whatsapp.routes';
 
 const router = Router();
 
@@ -48,5 +49,6 @@ router.use('/settings', settingsRoutes);
 router.use('/checklists', checklistRoutes);  // Checklist template management
 router.use('/feedback', feedbackRoutes);
 router.use('/webhook', webhookRoutes);   // Public endpoint — no protect middleware
+router.use('/whatsapp-webhook', whatsappRoutes); // Public endpoint for Meta WhatsApp
 
 export default router;

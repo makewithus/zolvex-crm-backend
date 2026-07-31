@@ -3,6 +3,7 @@ import { AppError } from '../utils/AppError';
 import * as invoiceService from './invoice.service';
 import { generateAndUploadInvoicePdf } from './invoicePdf.service';
 import { env } from '../config/env';
+import { eventBus } from '../events/eventBus';
 
 const prisma = new PrismaClient();
 
@@ -251,6 +252,10 @@ export const transitionJobStatus = async (
       // Fire-and-forget — do not await
       generateAndUploadInvoicePdf(createdInvoice.id).catch(() => {});
     }
+  }
+
+  if (newStatus === 'Completed') {
+    eventBus.publish('Job.Completed', { job_id: result.id });
   }
 
   return result;

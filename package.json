@@ -4,9 +4,9 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon --watch src --ext ts --exec tsx src/index.ts",
+    "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first nodemon --watch src --ext ts --exec tsx src/index.ts",
     "build": "tsc && tsc-alias",
-    "start": "node dist/index.js"
+    "start": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first node dist/index.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -42,6 +42,7 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^26.1.0",
     "@types/node-cron": "^3.0.11",
+    "cross-env": "^10.1.0",
     "nodemon": "^3.1.14",
     "prisma": "^5.22.0",
     "tsc-alias": "^1.8.17",

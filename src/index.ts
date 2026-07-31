@@ -11,6 +11,9 @@ import { startCronSweeper } from './workers/cronSweeper';
 import { startNotificationWorker } from './workers/notificationWorker';
 import { registerCustomerAutomations } from './automations/customerAutomations';
 import { registerOperationsAutomations } from './automations/operationsAutomations';
+import { registerWhatsAppAutomations } from './automations/whatsappAutomations';
+import { registerFeedbackAutomations } from './automations/feedbackAutomations';
+import { registerComplaintAutomations } from './automations/complaintAutomations';
 
 const app = express();
 
@@ -26,6 +29,9 @@ app.use(morgan('dev'));
 // first-request startup are always captured (defensive ordering)
 registerCustomerAutomations();   // Sprint 9.2: Booking Reminder, Invoice Scan, Payment Receipt
 registerOperationsAutomations(); // Sprint 9.3: Job Alerts, Lead Follow-up, Escalations
+registerWhatsAppAutomations();   // Incoming WhatsApp messages
+registerFeedbackAutomations();   // Feedback Requests
+registerComplaintAutomations();  // Complaint Notifications
 
 app.use('/api/v1', v1Routes);
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
