@@ -2,15 +2,22 @@ import { eventBus } from '../events/eventBus';
 import { logger } from '../utils/logger';
 import * as leadService from '../services/lead.service';
 
-const SYSTEM_USER_ID = process.env.WEBHOOK_SYSTEM_USER_ID || 'system';
+const SYSTEM_USER_ID = process.env.WEBHOOK_SYSTEM_USER_ID;
 
 export const registerWhatsAppAutomations = () => {
   logger.info('[Automations] Registering WhatsApp Automations...');
 
+  if (!SYSTEM_USER_ID) {
+    logger.error('[Automations] FATAL: WEBHOOK_SYSTEM_USER_ID is not configured. WhatsApp automations will fail.');
+  }
+
   eventBus.subscribe('WhatsApp.MessageReceived', async (payload: { phone: string; name: string; text: string }) => {
     try {
+      if (!SYSTEM_USER_ID) {
+        throw new Error('WEBHOOK_SYSTEM_USER_ID is missing from environment. Cannot attribute Lead ownership.');
+      }
+
       // LeadService's createLead handles customer deduplication automatically
-      // notes is a relation — do NOT pass it as a string field
       const lead = await leadService.createLead({
         phone: payload.phone,
         name: payload.name,

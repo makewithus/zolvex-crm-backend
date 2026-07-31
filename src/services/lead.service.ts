@@ -62,8 +62,8 @@ export const createLead = async (data: any, created_by: string) => {
     });
     return lead;
   }, {
-    maxWait: 30000,
-    timeout: 30000
+    maxWait: 5000,
+    timeout: 10000
   });
 
   // Emit event for Sprint 9.3 Operations Automations

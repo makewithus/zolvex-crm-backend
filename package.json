@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first nodemon --watch src --ext ts --exec tsx src/index.ts",
     "build": "tsc && tsc-alias",
-    "start": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first node dist/index.js"
+    "start": "node dist/index.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
