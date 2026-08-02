@@ -75,8 +75,27 @@ export const receiveWebhook = (req: Request, res: Response) => {
                 const text = message.text.body;
                 
                 logger.info(`[WhatsAppWebhook] Received message from ${phone}`);
+                // EXISTING: Triggers WhatsApp lead creation automation (unchanged)
                 eventBus.publish('WhatsApp.MessageReceived', { phone, name, text });
+                // ADDITIVE: Triggers conversation storage automation (new, isolated)
+                eventBus.publish('WhatsApp.ConversationReceived', {
+                  phone,
+                  name,
+                  text,
+                  meta_message_id: message.id
+                });
               }
+            });
+          }
+
+          // ADDITIVE: Handle delivery/read status updates from Meta
+          // Fully isolated — does not affect lead creation or any existing automation
+          if (value && value.statuses && value.statuses.length > 0) {
+            value.statuses.forEach((status: any) => {
+              eventBus.publish('WhatsApp.StatusUpdate', {
+                meta_message_id: status.id,
+                status: status.status
+              });
             });
           }
         });

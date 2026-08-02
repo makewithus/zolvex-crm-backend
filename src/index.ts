@@ -14,6 +14,7 @@ import { registerOperationsAutomations } from './automations/operationsAutomatio
 import { registerWhatsAppAutomations } from './automations/whatsappAutomations';
 import { registerFeedbackAutomations } from './automations/feedbackAutomations';
 import { registerComplaintAutomations } from './automations/complaintAutomations';
+import { registerConversationAutomations } from './automations/conversationAutomation';
 
 const app = express();
 
@@ -31,7 +32,8 @@ registerCustomerAutomations();   // Sprint 9.2: Booking Reminder, Invoice Scan, 
 registerOperationsAutomations(); // Sprint 9.3: Job Alerts, Lead Follow-up, Escalations
 registerWhatsAppAutomations();   // Incoming WhatsApp messages
 registerFeedbackAutomations();   // Feedback Requests
-registerComplaintAutomations();  // Complaint Notifications
+registerComplaintAutomations();         // Complaint Notifications
+registerConversationAutomations();      // WhatsApp Inbox: conversation + status storage
 
 app.use('/api/v1', v1Routes);
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

@@ -1062,3 +1062,63 @@ model QuoteTimeline {
 
   @@index([quote_id])
 }
+
+// ----------------------------------------------------------------------
+// PHASE 12: WHATSAPP CRM INBOX
+// Additive module — no existing models modified.
+// ----------------------------------------------------------------------
+
+enum ThreadStatus {
+  OPEN
+  ASSIGNED
+  RESOLVED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model WhatsAppThread {
+  id              String       @id @default(uuid())
+  customer_phone  String                            // Snapshot — NOT @unique. Use customer_id as primary identity.
+  customer_id     String?                           // Soft FK → Customer.id (preferred long-term identity)
+  assigned_to     String?                           // FK → User.id (additive, new table only)
+  status          ThreadStatus @default(OPEN)
+  unread_count    Int          @default(0)          // Maintained by automation; avoids expensive COUNT queries
+  last_message_at DateTime?
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+
+  messages        WhatsAppMessage[]
+
+  @@index([customer_phone])     // Fast lookup on inbound messages
+  @@index([customer_id])        // Preferred long-term identity lookup
+  @@index([assigned_to])        // "My conversations" filter
+  @@index([status])             // "Open conversations" filter
+  @@index([last_message_at])    // Sort by latest message in inbox
+}
+
+model WhatsAppMessage {
+  id              String           @id @default(uuid())
+  thread_id       String
+  thread          WhatsAppThread   @relation(fields: [thread_id], references: [id]) // No onDelete: Cascade — soft-delete for audit
+  direction       MessageDirection
+  body            String
+  status          MessageStatus    @default(SENT)
+  meta_message_id String?          // Meta's wamid — used for delivery/read status callbacks
+  sent_by         String?          // User ID if OUTBOUND (agent); null if INBOUND
+  deleted_at      DateTime?        // Soft delete — preserves history for compliance and audit
+
+  created_at      DateTime         @default(now())
+
+  @@index([thread_id])
+  @@index([meta_message_id])
+}
