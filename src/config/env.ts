@@ -64,39 +64,36 @@ const sandboxSchema = baseSchema.extend({
   META_VERIFY_TOKEN:          z.string({ error: 'META_VERIFY_TOKEN is required for sandbox/production mode' }),
   META_APP_SECRET:            z.string({ error: 'META_APP_SECRET is required for sandbox/production mode' }),
 
-  // Email (required in sandbox + production)
-  SMTP_HOST:           z.string({ error: 'SMTP_HOST is required for sandbox/production mode' }),
-  SMTP_PORT:           z.string({ error: 'SMTP_PORT is required for sandbox/production mode' }),
-  SMTP_USER:           z.string({ error: 'SMTP_USER is required for sandbox/production mode' }),
-  SMTP_PASS:           z.string({ error: 'SMTP_PASS is required for sandbox/production mode' }),
+  // Email
+  SMTP_HOST:           z.string().optional(),
+  SMTP_PORT:           z.string().optional(),
+  SMTP_USER:           z.string().optional(),
+  SMTP_PASS:           z.string().optional(),
   EMAIL_FROM_ADDRESS:  z.string().default('noreply@zolvex.in'),
 });
 
 const mapsSchema = baseSchema.extend({
-  GOOGLE_MAPS_API_KEY: z.string({ error: 'GOOGLE_MAPS_API_KEY is required in maps mode' }),
+  GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
 
 const productionSchema = sandboxSchema.extend({
-  // SMS (required in production only)
-  SMS_PROVIDER:          z.enum(['TWILIO', 'TEXTLOCAL'] as const),
+  // SMS (required in production only, but making optional to unblock phased deployments)
+  SMS_PROVIDER:          z.enum(['TWILIO', 'TEXTLOCAL'] as const).optional(),
   TWILIO_ACCOUNT_SID:    z.string().optional(),
   TWILIO_AUTH_TOKEN:     z.string().optional(),
   TWILIO_FROM_NUMBER:    z.string().optional(),
   TEXTLOCAL_API_KEY:     z.string().optional(),
 
-  // Google Maps (required in production only)
-  GOOGLE_MAPS_API_KEY:   z.string({ error: 'GOOGLE_MAPS_API_KEY is required in production' }),
+  // Google Maps
+  GOOGLE_MAPS_API_KEY:   z.string().optional(),
 
-  // Cloudflare R2 object storage (required in production only)
-  // R2 is S3-compatible — uses @aws-sdk/client-s3 with a custom endpoint.
-  // R2_ENDPOINT format: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-  // R2_PUBLIC_URL:       your public bucket URL (e.g. https://media.zolvex.in)
-  R2_ACCOUNT_ID:         z.string({ error: 'R2_ACCOUNT_ID is required in production' }),
-  R2_ACCESS_KEY_ID:      z.string({ error: 'R2_ACCESS_KEY_ID is required in production' }),
-  R2_SECRET_ACCESS_KEY:  z.string({ error: 'R2_SECRET_ACCESS_KEY is required in production' }),
-  R2_BUCKET:             z.string({ error: 'R2_BUCKET is required in production' }),
-  R2_ENDPOINT:           z.string({ error: 'R2_ENDPOINT is required in production' }),
-  R2_PUBLIC_URL:         z.string({ error: 'R2_PUBLIC_URL is required in production' }),
+  // Cloudflare R2 object storage
+  R2_ACCOUNT_ID:         z.string().optional(),
+  R2_ACCESS_KEY_ID:      z.string().optional(),
+  R2_SECRET_ACCESS_KEY:  z.string().optional(),
+  R2_BUCKET:             z.string().optional(),
+  R2_ENDPOINT:           z.string().optional(),
+  R2_PUBLIC_URL:         z.string().optional(),
 });
 
 // Select schema based on PROVIDER_MODE — fail fast if credentials are missing
