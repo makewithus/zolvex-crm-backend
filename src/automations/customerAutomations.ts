@@ -45,6 +45,28 @@ export const registerCustomerAutomations = () => {
     }
 
     try {
+      // 1. Immediate Booking Confirmation
+      const booking = await prisma.booking.findUnique({
+        where: { id: payload.booking_id },
+        include: { customer: true }
+      });
+
+      if (booking && booking.customer?.phone) {
+        await enqueueNotification({
+          correlation_id: `BKG-CONF-${booking.id}-${Date.now()}`,
+          recipient_type: 'Customer',
+          recipient_id: booking.customer.phone,
+          channel: 'WHATSAPP',
+          template_code: 'BOOKING_CONFIRMED',
+          payload_version: '1.0',
+          payload: {
+            customer_name: booking.customer.name,
+            service_name: booking.service_name,
+            scheduled_date: booking.scheduled_date
+          }
+        });
+      }
+
       const reminderTime = subHours(new Date(payload.scheduled_date), 24);
 
       // Only schedule if the reminder time is in the future

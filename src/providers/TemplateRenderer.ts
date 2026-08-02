@@ -84,6 +84,42 @@ const TEMPLATES_V1: Record<string, TemplateDefinition> = {
     render: (p) =>
       `*Lead Escalation* — ${p.manager_name}, a lead (${maskPhone(p.lead_phone)}) assigned to ${p.assigned_to} has not been followed up in 48 hours. Immediate review required.`
   },
+
+  booking_confirmed_v1: {
+    channel: 'WHATSAPP',
+    requiredFields: ['customer_name', 'service_name', 'scheduled_date'],
+    render: (p) =>
+      `Hi ${p.customer_name}! Your booking for *${p.service_name}* on *${formatDate(p.scheduled_date)}* is confirmed. We will assign a technician shortly. Thank you for choosing Zolvex!`
+  },
+
+  feedback_request_v1: {
+    channel: 'WHATSAPP',
+    requiredFields: ['customer_name', 'service_name', 'job_id'],
+    render: (p) =>
+      `Hi ${p.customer_name}! Your *${p.service_name}* service (Job: ${p.job_id}) was recently completed. We would love to hear your feedback. Please reply to this message with your experience. Thank you!`
+  },
+
+  complaint_created_v1: {
+    channel: 'WHATSAPP',
+    requiredFields: ['customer_name', 'complaint_id', 'subject'],
+    render: (p) =>
+      `Hi ${p.customer_name}, we have received your complaint: *${p.subject}* (ID: ${p.complaint_id}). Our support team is looking into it and will get back to you shortly.`
+  },
+
+  complaint_resolved_v1: {
+    channel: 'WHATSAPP',
+    requiredFields: ['customer_name', 'complaint_id'],
+    render: (p) =>
+      `Hi ${p.customer_name}, your complaint (ID: ${p.complaint_id}) has been marked as *Resolved*. If you have further issues, please let us know.`
+  },
+
+  complaint_escalated_v1: {
+    channel: 'WHATSAPP',
+    requiredFields: ['customer_name', 'complaint_id'],
+    render: (p) =>
+      `Hi ${p.customer_name}, your complaint (ID: ${p.complaint_id}) has been *Escalated* to management for faster resolution. We apologize for the delay.`
+  },
+
   // ── EMAIL CHANNEL TEMPLATES ───────────────────────────────────────────────
   // Mirror of WhatsApp templates formatted for email.
   // subject() is used as the email Subject header.
@@ -137,6 +173,11 @@ const CODE_ALIAS: Record<string, string> = {
   'JOB_ESCALATION':                   'job_escalation_v1',
   'LEAD_FOLLOWUP_REMINDER':           'lead_followup_reminder_v1',
   'LEAD_MANAGER_ESCALATION':          'lead_manager_escalation_v1',
+  'BOOKING_CONFIRMED':                'booking_confirmed_v1',
+  'FEEDBACK_REQUEST':                 'feedback_request_v1',
+  'COMPLAINT_CREATED':                'complaint_created_v1',
+  'COMPLAINT_RESOLVED':               'complaint_resolved_v1',
+  'COMPLAINT_ESCALATED':              'complaint_escalated_v1',
 };
 
 // ── Version Dispatch ─────────────────────────────────────────────────────────
