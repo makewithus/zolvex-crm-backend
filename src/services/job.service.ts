@@ -45,13 +45,16 @@ export const createJobFromBooking = async (
 
     const jobIdString = await generateJobId(tx);
 
+    const initialStatus = booking.assigned_user_id ? 'Assigned' : 'Pending';
+
     const job = await tx.job.create({
       data: {
         job_id: jobIdString,
         booking_id: booking.id,
         scheduled_start: booking.scheduled_date,
         estimated_duration_minutes: booking.estimated_duration_minutes || 60,
-        status: 'Pending',
+        status: initialStatus,
+        assigned_user_id: booking.assigned_user_id,
         priority,
         created_by: createdById,
       }
@@ -60,11 +63,22 @@ export const createJobFromBooking = async (
     await tx.jobHistory.create({
       data: {
         job_id: job.id,
-        to_status: 'Pending',
+        to_status: initialStatus,
         changed_by: createdById,
         note: 'Job generated from Booking'
       }
     });
+
+    if (booking.assigned_user_id) {
+      await tx.jobAssignmentHistory.create({
+        data: {
+          job_id: job.id,
+          new_user_id: booking.assigned_user_id,
+          assigned_by: createdById,
+          reason: 'Inherited from Booking assignment'
+        }
+      });
+    }
 
     return job;
   }, {
