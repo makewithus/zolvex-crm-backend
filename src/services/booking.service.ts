@@ -40,7 +40,7 @@ async function ensureSequenceExists() {
 ensureSequenceExists().catch(console.error);
 
 export const getBookings = async (filters: any) => {
-  const { status, city_id, customer_id, service_id, assigned_user_id, booking_id, page, limit } = filters;
+  const { status, city_id, customer_id, service_id, assigned_user_id, booking_id, date_from, date_to, page, limit } = filters;
   const where: Prisma.BookingWhereInput = {};
 
   if (status) where.status = status;
@@ -49,6 +49,16 @@ export const getBookings = async (filters: any) => {
   if (service_id) where.service_id = service_id;
   if (assigned_user_id) where.assigned_user_id = assigned_user_id;
   if (booking_id) where.booking_id = { contains: booking_id, mode: 'insensitive' };
+
+  if (date_from || date_to) {
+    where.scheduled_date = {};
+    if (date_from) where.scheduled_date.gte = new Date(date_from);
+    if (date_to) {
+      const toDate = new Date(date_to);
+      toDate.setDate(toDate.getDate() + 1); // include the whole day
+      where.scheduled_date.lt = toDate;
+    }
+  }
 
   const skip = (page - 1) * limit;
 

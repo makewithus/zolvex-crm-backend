@@ -90,3 +90,37 @@ export const getFeedbackStats = async () => {
     distribution: distribution.map(d => ({ rating: d.rating, count: d._count.rating }))
   };
 };
+
+export interface UpdateFeedbackInput {
+  rating?: number;
+  comment?: string;
+}
+
+export const updateFeedback = async (id: string, data: UpdateFeedbackInput) => {
+  const fb = await prisma.customerFeedback.findUnique({ where: { id } });
+  if (!fb) throw new AppError('Feedback not found', 404);
+
+  if (data.rating !== undefined && (data.rating < 1 || data.rating > 5 || !Number.isInteger(data.rating))) {
+    throw new AppError('Rating must be an integer between 1 and 5', 400);
+  }
+
+  return prisma.customerFeedback.update({
+    where: { id },
+    data: {
+      ...(data.rating !== undefined ? { rating: data.rating } : {}),
+      ...(data.comment !== undefined ? { comment: data.comment } : {}),
+    },
+    include: {
+      customer: { select: { id: true, name: true, phone: true } },
+      booking:  { select: { id: true, booking_id: true } },
+      job:      { select: { id: true, job_id: true } },
+    }
+  });
+};
+
+export const deleteFeedback = async (id: string) => {
+  const fb = await prisma.customerFeedback.findUnique({ where: { id } });
+  if (!fb) throw new AppError('Feedback not found', 404);
+  return prisma.customerFeedback.delete({ where: { id } });
+};
+

@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 export const getAllCustomers = async () => {
   return prisma.customer.findMany({
-    include: { leads: true },
+    include: { leads: true }
   });
 };
 

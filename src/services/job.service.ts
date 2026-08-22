@@ -286,6 +286,22 @@ export const getJobs = async (filters: any) => {
   if (filters.priority) where.priority = filters.priority;
   if (filters.assigned_user_id) where.assigned_user_id = filters.assigned_user_id;
   
+  if (filters.city_id || filters.service_id) {
+    where.booking = {};
+    if (filters.city_id) where.booking.city_id = filters.city_id;
+    if (filters.service_id) where.booking.service_id = filters.service_id;
+  }
+
+  if (filters.date_from || filters.date_to) {
+    where.scheduled_start = {};
+    if (filters.date_from) where.scheduled_start.gte = new Date(filters.date_from);
+    if (filters.date_to) {
+      const toDate = new Date(filters.date_to);
+      toDate.setDate(toDate.getDate() + 1); // include the whole day
+      where.scheduled_start.lt = toDate;
+    }
+  }
+
   return await prisma.job.findMany({
     where,
     include: { booking: { include: { customer: true, city: true, service: true } }, assignedUser: { select: { id: true, name: true } } },

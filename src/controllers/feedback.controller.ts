@@ -36,3 +36,20 @@ export const getFeedbackStats = async (_req: Request, res: Response, next: NextF
     res.json({ success: true, data });
   } catch (e) { next(e); }
 };
+
+export const updateFeedback = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await feedbackService.updateFeedback(String(req.params.id), {
+      rating:  req.body.rating,
+      comment: req.body.comment,
+    });
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+};
+
+export const deleteFeedback = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await feedbackService.deleteFeedback(String(req.params.id));
+    res.json({ success: true, message: 'Feedback deleted.' });
+  } catch (e) { next(e); }
+};
