@@ -8,9 +8,10 @@ datasource db {
 }
 
 model Role {
-  id    String @id @default(uuid())
-  name  String @unique
-  users User[]
+  id         String @id @default(uuid())
+  name       String @unique
+  created_at DateTime @default(now())
+  users      User[]
 }
 
 // Generic key-value store for global system configuration.
@@ -29,6 +30,7 @@ model City {
   name         String        @unique
   state        String?
   is_active    Boolean       @default(true)
+  created_at   DateTime      @default(now())
   users        User[]
   serviceAreas ServiceArea[]
   pricingRules PricingRule[]
@@ -57,6 +59,7 @@ model User {
   joining_date      DateTime?
   is_active         Boolean             @default(true)
   skill_tags        String[]
+  created_at        DateTime            @default(now())
   staffAvailability StaffAvailability[]
   assignedLeads     Lead[]
   leadNotes         LeadNote[]
@@ -86,6 +89,7 @@ model Service {
   description  String?
   base_price   Float
   is_active    Boolean       @default(true)
+  created_at   DateTime      @default(now())
   pricingRules PricingRule[]
   leads        Lead[]
   bookings     Booking[]
@@ -103,6 +107,7 @@ model PricingRule {
   cgst_percent Float     @default(9)
   sgst_percent Float     @default(9)
   igst_percent Float     @default(0)
+  created_at   DateTime  @default(now())
   bookings     Booking[]
 
   @@unique([service_id, city_id, bhk_type, tank_size])
@@ -184,6 +189,7 @@ model Customer {
   name               String?
   is_repeat_customer Boolean  @default(false)
   tags               String[]
+  created_at         DateTime @default(now())
 
   leads      Lead[]
   bookings   Booking[]

@@ -4,7 +4,9 @@ import { AppError } from '../utils/AppError';
 const prisma = new PrismaClient();
 
 export const getAllServices = async () => {
-  return prisma.service.findMany();
+  return prisma.service.findMany({
+    orderBy: [{ created_at: 'desc' }, { id: 'desc' }]
+  });
 };
 
 export const createService = async (data: any) => {

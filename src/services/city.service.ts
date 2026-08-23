@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 export const getAllCities = async () => {
   return prisma.city.findMany({
+    orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
     include: { serviceAreas: true }
   });
 };

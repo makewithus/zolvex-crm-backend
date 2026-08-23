@@ -31,27 +31,57 @@ export class ComplaintController {
   static async getComplaints(req: any, res: Response) {
     try {
       // Basic filtering support
-      const { status, city_id } = req.query;
+      const { status, city_id, service_id, date_from, date_to } = req.query;
       const user = req.user!;
       
       let whereClause: any = {};
       
       if (status) whereClause.status = status;
       
+      if (date_from || date_to) {
+        whereClause.created_at = {};
+        if (date_from) {
+          const from = new Date(date_from as string);
+          from.setHours(0, 0, 0, 0);
+          whereClause.created_at.gte = from;
+        }
+        if (date_to) {
+          const to = new Date(date_to as string);
+          to.setHours(23, 59, 59, 999);
+          whereClause.created_at.lte = to;
+        }
+      }
+
+      let customerCondition: any = {};
+      let hasCustomerCondition = false;
+      let bookingCondition: any = {};
+      let hasBookingCondition = false;
+
       // RBAC filtering
       if (user.role === 'City Manager') {
-        whereClause.customer = {
-          bookings: { some: { city_id: user.cityId } }
-        };
+        bookingCondition.city_id = user.cityId;
+        hasBookingCondition = true;
       } else if (user.role === 'Technician' || user.role === 'Support Agent') {
         whereClause.assigned_to = user.id;
       }
 
-      // If city_id is explicitly passed and user is Super Admin, allow filtering
       if (city_id && user.role === 'Super Admin') {
-        whereClause.customer = {
-          bookings: { some: { city_id: city_id as string } }
-        };
+        bookingCondition.city_id = city_id as string;
+        hasBookingCondition = true;
+      }
+
+      if (service_id) {
+        bookingCondition.service_id = service_id as string;
+        hasBookingCondition = true;
+      }
+
+      if (hasBookingCondition) {
+        customerCondition.bookings = { some: bookingCondition };
+        hasCustomerCondition = true;
+      }
+
+      if (hasCustomerCondition) {
+        whereClause.customer = customerCondition;
       }
 
       const complaints = await prisma.complaint.findMany({

@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 export const getAllCustomers = async () => {
   return prisma.customer.findMany({
+    orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
     include: { leads: true }
   });
 };

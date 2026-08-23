@@ -8,6 +8,7 @@ export const getAllUsers = async (roleName: string, cityId?: string) => {
   const where = roleName === 'City Manager' && cityId ? { city_id: cityId } : {};
   return prisma.user.findMany({
     where,
+    orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
     select: { id: true, name: true, phone: true, is_active: true, joining_date: true, skill_tags: true, role: true, city: true }
   });
 };

@@ -22,6 +22,8 @@ import feedbackRoutes from './feedback.routes';
 import webhookRoutes from './webhook.routes';
 import whatsappRoutes from './whatsapp.routes';
 import whatsappInboxRoutes from './whatsappInbox.routes';
+import alertRoutes from './alert.routes';
+import searchRoutes from './search.routes';
 
 const router = Router();
 
@@ -38,6 +40,8 @@ router.use('/pricing-rules', pricingRuleRoutes);
 router.use('/bookings', bookingRoutes);
 router.use('/jobs', jobRoutes);
 router.use('/leads', leadRoutes);
+router.use('/alerts', alertRoutes);
+router.use('/search', searchRoutes);
 router.use('/customers', customerRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/lost-reasons', lostReasonRoutes);

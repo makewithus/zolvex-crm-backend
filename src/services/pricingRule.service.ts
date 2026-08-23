@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 export const getAllPricingRules = async () => {
   return prisma.pricingRule.findMany({
+    orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
     include: { service: true, city: true }
   });
 };
