@@ -150,6 +150,8 @@ model Lead {
   customer_id    String
   customer       Customer    @relation(fields: [customer_id], references: [id])
 
+  created_at DateTime @default(now())
+
   notes   LeadNote[]
   history LeadHistory[]
   booking Booking?

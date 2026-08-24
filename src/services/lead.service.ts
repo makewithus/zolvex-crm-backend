@@ -18,6 +18,10 @@ export const getAllLeads = async (cityId?: string) => {
   const where = cityId ? { city_id: cityId } : {};
   return prisma.lead.findMany({
     where,
+    orderBy: [
+      { created_at: 'desc' },
+      { id: 'desc' }
+    ],
     include: { city: true, service: true, assignedTo: true, notes: true, history: true }
   });
 };
