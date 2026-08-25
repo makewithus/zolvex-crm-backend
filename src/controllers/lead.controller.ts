@@ -5,7 +5,8 @@ import { sendSuccess } from '../utils/response.util';
 export const getLeads = async (req: Request, res: Response) => {
   const user = (req as any).user;
   const cityId = user.role === 'City Manager' ? user.cityId : undefined;
-  const leads = await leadService.getAllLeads(cityId);
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const leads = await leadService.getAllLeads(cityId, limit);
   sendSuccess(res, 200, 'Leads retrieved', leads);
 };
 

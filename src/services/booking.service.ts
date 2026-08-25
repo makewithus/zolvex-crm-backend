@@ -122,19 +122,18 @@ export const convertLeadToBooking = async (leadId: string, bookingData: any, use
     if (existingBooking) throw new AppError('A booking already exists for this lead', 400);
 
     // 2. Verify Pricing Rule
-    const pricingRule = await tx.pricingRule.findFirst({
-      where: {
-        service_id: lead.service_id!,
-        OR: [
-          { city_id: lead.city_id },
-          { city_id: null }
-        ]
-      },
-      orderBy: { city_id: 'desc' } // Prioritize city-specific rules
+    const pricingRule = await tx.pricingRule.findUnique({
+      where: { id: bookingData.pricing_rule_id }
     });
 
     if (!pricingRule) {
-      throw new AppError('No applicable pricing rule found for this service/city. Cannot convert to booking.', 400);
+      throw new AppError('The selected pricing rule does not exist. Cannot convert to booking.', 400);
+    }
+    if (pricingRule.service_id !== lead.service_id) {
+      throw new AppError('The selected pricing rule does not match the Lead service.', 400);
+    }
+    if (pricingRule.city_id && pricingRule.city_id !== lead.city_id) {
+      throw new AppError('The selected pricing rule is not valid for this City.', 400);
     }
 
     // 3. Prevent Duplicate Booking (Same customer, same service, same date)
@@ -268,18 +267,19 @@ export const createBooking = async (data: any, userId: string) => {
     if (!city) throw new AppError('City not found', 404);
 
     // 2. Verify Pricing Rule
-    const pricingRule = await tx.pricingRule.findFirst({
-      where: {
-        service_id: service.id,
-        OR: [
-          { city_id: city.id },
-          { city_id: null }
-        ]
-      },
-      orderBy: { city_id: 'desc' }
+    const pricingRule = await tx.pricingRule.findUnique({
+      where: { id: data.pricing_rule_id }
     });
 
-    if (!pricingRule) throw new AppError('No applicable pricing rule found', 400);
+    if (!pricingRule) {
+      throw new AppError('The selected pricing rule does not exist.', 400);
+    }
+    if (pricingRule.service_id !== service.id) {
+      throw new AppError('The selected pricing rule does not match the requested Service.', 400);
+    }
+    if (pricingRule.city_id && pricingRule.city_id !== city.id) {
+      throw new AppError('The selected pricing rule is not valid for this City.', 400);
+    }
 
     // 3. BUG-G FIX: Duplicate booking protection (same customer + service + date, not cancelled/completed)
     const bookingDate = new Date(data.scheduled_date);

@@ -3,7 +3,7 @@ import * as pricingRuleService from '../services/pricingRule.service';
 import { sendSuccess } from '../utils/response.util';
 
 export const getPricingRules = async (req: Request, res: Response) => {
-  const rules = await pricingRuleService.getAllPricingRules();
+  const rules = await pricingRuleService.getAllPricingRules(req.query);
   sendSuccess(res, 200, 'Pricing Rules retrieved', rules);
 };
 

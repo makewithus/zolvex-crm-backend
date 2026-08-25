@@ -150,6 +150,9 @@ model Lead {
   customer_id    String
   customer       Customer    @relation(fields: [customer_id], references: [id])
 
+  service_location String?
+  follow_up_date   DateTime?
+
   created_at DateTime @default(now())
 
   notes   LeadNote[]

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+import { eventBus } from '../events/eventBus';
 const prisma = new PrismaClient();
 const ALLOWED_TRANSITIONS = {
     New: ['Contacted', 'Qualified', 'Lost'],
@@ -10,10 +11,18 @@ const ALLOWED_TRANSITIONS = {
     Booked: ['Lost'],
     Lost: ['New', 'Contacted']
 };
-export const getAllLeads = async (cityId) => {
-    const where = cityId ? { city_id: cityId } : {};
-    return prisma.lead.findMany({
+export const getAllLeads = async (cityId, limit) => {
+    const where = {};
+    if (cityId) {
+        where.city_id = cityId;
+    }
+    return await prisma.lead.findMany({
         where,
+        take: limit ? limit : undefined,
+        orderBy: [
+            { created_at: 'desc' },
+            { id: 'desc' }
+        ],
         include: { city: true, service: true, assignedTo: true, notes: true, history: true }
     });
 };
@@ -30,7 +39,7 @@ export const getLeadById = async (id, cityId) => {
     return lead;
 };
 export const createLead = async (data, created_by) => {
-    return prisma.$transaction(async (tx) => {
+    const lead = await prisma.$transaction(async (tx) => {
         // 1. Mandatory Customer deduplication and auto-creation
         const customer = await tx.customer.upsert({
             where: { phone: data.phone },
@@ -53,7 +62,13 @@ export const createLead = async (data, created_by) => {
             }
         });
         return lead;
+    }, {
+        maxWait: 5000,
+        timeout: 10000
     });
+    // Emit event for Sprint 9.3 Operations Automations
+    eventBus.publish('Lead.Created', { lead_id: lead.id });
+    return lead;
 };
 export const updateLead = async (id, data, changed_by) => {
     const currentLead = await prisma.lead.findUnique({ where: { id } });
@@ -66,9 +81,9 @@ export const updateLead = async (id, data, changed_by) => {
             throw new AppError(`Invalid transition from ${currentLead.status} to ${data.status}`, 400);
         }
         if (data.status === 'Lost' && !data.lost_reason_id) {
-            throw new AppError('Lost reason is required when marking lead as Lost', 400);
+            throw new AppError('A lost reason is required when marking a lead as Lost.', 400);
         }
-        // If not lost, ensure we don't save a lost_reason_id
+        // If not lost, ensure we don't save a stale lost_reason_id
         if (data.status !== 'Lost') {
             data.lost_reason_id = null;
         }
@@ -95,12 +110,44 @@ export const updateLead = async (id, data, changed_by) => {
                 }
             });
         }
-        // Optional: Log assignment as history? Product spec usually separates history. We log stage transitions above.
         return updated;
+    }, {
+        maxWait: 5000,
+        timeout: 10000
     });
 };
 export const createLeadNote = async (lead_id, note_text, created_by) => {
-    return prisma.leadNote.create({
+    const note = await prisma.leadNote.create({
         data: { lead_id, note_text, created_by }
     });
+    // ── Stage Rule: Note added on a New lead → auto-advance to Contacted ────
+    // Simple if-then only. Non-blocking — failure never affects note creation.
+    try {
+        await applyStageRulesAfterNote(lead_id, created_by);
+    }
+    catch {
+        // Silently ignore — stage rule failure must never break note creation
+    }
+    return note;
+};
+/**
+ * STAGE RULES (simple hardcoded if-then, no rule engine)
+ * Rule 1: If lead is 'New' and a note is added → advance to 'Contacted'
+ * Rules are ADDITIVE and NON-BLOCKING. Never gate any workflow.
+ */
+const applyStageRulesAfterNote = async (lead_id, changed_by) => {
+    const lead = await prisma.lead.findUnique({ where: { id: lead_id }, select: { status: true } });
+    if (!lead)
+        return;
+    if (lead.status === 'New') {
+        await prisma.$transaction(async (tx) => {
+            await tx.lead.update({ where: { id: lead_id }, data: { status: 'Contacted' } });
+            await tx.leadHistory.create({
+                data: { lead_id, from_stage: 'New', to_stage: 'Contacted', changed_by }
+            });
+        }, {
+            maxWait: 5000,
+            timeout: 10000
+        });
+    }
 };

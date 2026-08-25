@@ -1,6 +1,22 @@
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+import { BUSINESS_HOURS } from '../config/business-hours';
+import { checkAvailability } from './technician-availability.service';
+import { eventBus } from '../events/eventBus';
+import { calculateGST } from '../utils/gst.util';
+import { getCompanyRegisteredState } from './settings.service';
 const prisma = new PrismaClient();
+function validateSlot(slot) {
+    if (!slot)
+        return;
+    const [h, m] = slot.split(':').map(Number);
+    const totalMinutes = h * 60 + m;
+    const start = BUSINESS_HOURS.START_HOUR * 60;
+    const end = BUSINESS_HOURS.END_HOUR * 60;
+    if (totalMinutes < start || totalMinutes > end) {
+        throw new AppError(`Time slot must be between ${BUSINESS_HOURS.START_HOUR}:00 and ${BUSINESS_HOURS.END_HOUR}:00 (business hours)`, 400);
+    }
+}
 // Helper to generate a sequential Booking ID using a transaction
 async function generateBookingId(tx) {
     const sequence = await tx.bookingSequence.update({
@@ -19,7 +35,7 @@ async function ensureSequenceExists() {
 // Call this once on startup or when the first booking is created
 ensureSequenceExists().catch(console.error);
 export const getBookings = async (filters) => {
-    const { status, city_id, customer_id, service_id, assigned_user_id, booking_id, page, limit } = filters;
+    const { status, city_id, customer_id, service_id, assigned_user_id, booking_id, date_from, date_to, page, limit } = filters;
     const where = {};
     if (status)
         where.status = status;
@@ -33,6 +49,16 @@ export const getBookings = async (filters) => {
         where.assigned_user_id = assigned_user_id;
     if (booking_id)
         where.booking_id = { contains: booking_id, mode: 'insensitive' };
+    if (date_from || date_to) {
+        where.scheduled_date = {};
+        if (date_from)
+            where.scheduled_date.gte = new Date(date_from);
+        if (date_to) {
+            const toDate = new Date(date_to);
+            toDate.setDate(toDate.getDate() + 1); // include the whole day
+            where.scheduled_date.lt = toDate;
+        }
+    }
     const skip = (page - 1) * limit;
     const [bookings, total] = await Promise.all([
         prisma.booking.findMany({
@@ -68,7 +94,10 @@ export const getBookingById = async (id) => {
 };
 // Core atomic conversion logic
 export const convertLeadToBooking = async (leadId, bookingData, userId) => {
-    return prisma.$transaction(async (tx) => {
+    validateSlot(bookingData.slot);
+    // Pre-fetch global setting outside of the transaction to avoid connection pool deadlocks
+    const companyState = await getCompanyRegisteredState();
+    const booking = await prisma.$transaction(async (tx) => {
         // 1. Verify Lead
         const lead = await tx.lead.findUnique({
             where: { id: leadId },
@@ -80,6 +109,10 @@ export const convertLeadToBooking = async (leadId, bookingData, userId) => {
             throw new AppError('Lead is already booked', 400);
         if (lead.status === 'Lost')
             throw new AppError('Cannot convert a lost lead', 400);
+        if (!lead.service_id)
+            throw new AppError('Please edit the Lead and assign a Service before converting to a Booking.', 400);
+        if (!lead.city_id)
+            throw new AppError('Please edit the Lead and assign a City before converting to a Booking.', 400);
         // Check for existing booking on this lead
         const existingBooking = await tx.booking.findUnique({ where: { lead_id: leadId } });
         if (existingBooking)
@@ -119,7 +152,13 @@ export const convertLeadToBooking = async (leadId, bookingData, userId) => {
         }
         // 4. Generate Booking ID
         const booking_id = await generateBookingId(tx);
-        // 5. Create Booking
+        // 5. Pre-compute GST
+        if (!lead.city?.state) {
+            throw new AppError("The selected city has no state configured. Please configure the city before creating bookings.", 400);
+        }
+        const bookingState = lead.city.state;
+        const gst1 = calculateGST(Number(pricingRule.base_price), Number(pricingRule.cgst_percent), Number(pricingRule.sgst_percent), Number(pricingRule.igst_percent), bookingState, companyState);
+        // 6. Create Booking
         const booking = await tx.booking.create({
             data: {
                 booking_id,
@@ -138,15 +177,21 @@ export const convertLeadToBooking = async (leadId, bookingData, userId) => {
                 landmark: bookingData.landmark,
                 city_name: bookingData.city_name,
                 postal_code: bookingData.postal_code,
-                state: bookingData.state,
+                state: bookingState,
                 country: bookingData.country,
                 latitude: bookingData.latitude,
                 longitude: bookingData.longitude,
                 service_name: lead.service.name,
                 base_price: pricingRule.base_price,
                 discount: 0,
-                tax: 0,
-                final_amount: pricingRule.base_price,
+                cgst_percent: gst1.cgst_percent,
+                cgst_amount: gst1.cgst_amount,
+                sgst_percent: gst1.sgst_percent,
+                sgst_amount: gst1.sgst_amount,
+                igst_percent: gst1.igst_percent,
+                igst_amount: gst1.igst_amount,
+                tax: gst1.total_tax,
+                final_amount: pricingRule.base_price + gst1.total_tax,
                 notes: bookingData.notes,
                 special_instructions: bookingData.special_instructions,
                 created_by: userId,
@@ -168,10 +213,19 @@ export const convertLeadToBooking = async (leadId, bookingData, userId) => {
             }
         });
         return booking;
+    }, {
+        maxWait: 5000,
+        timeout: 15000
     });
+    // Publish AFTER the transaction commits — handler sees consistent DB state
+    eventBus.publish('Booking.Created', { booking_id: booking.id, scheduled_date: booking.scheduled_date });
+    return booking;
 };
 export const createBooking = async (data, userId) => {
-    return prisma.$transaction(async (tx) => {
+    validateSlot(data.slot);
+    // Pre-fetch global setting outside of the transaction to avoid connection pool deadlocks
+    const companyState = await getCompanyRegisteredState();
+    const booking = await prisma.$transaction(async (tx) => {
         // 1. Verify Customer, Service, City
         const [customer, service, city] = await Promise.all([
             tx.customer.findUnique({ where: { id: data.customer_id } }),
@@ -197,9 +251,32 @@ export const createBooking = async (data, userId) => {
         });
         if (!pricingRule)
             throw new AppError('No applicable pricing rule found', 400);
-        // 3. Generate Booking ID
+        // 3. BUG-G FIX: Duplicate booking protection (same customer + service + date, not cancelled/completed)
+        const bookingDate = new Date(data.scheduled_date);
+        const dayStart = new Date(bookingDate);
+        dayStart.setUTCHours(0, 0, 0, 0);
+        const dayEnd = new Date(bookingDate);
+        dayEnd.setUTCHours(23, 59, 59, 999);
+        const duplicate = await tx.booking.findFirst({
+            where: {
+                customer_id: customer.id,
+                service_id: service.id,
+                status: { notIn: ['Cancelled', 'Completed'] },
+                scheduled_date: { gte: dayStart, lte: dayEnd }
+            }
+        });
+        if (duplicate) {
+            throw new AppError(`An active booking for this customer and service already exists on this date (${duplicate.booking_id}).`, 409);
+        }
+        // 4. Generate Booking ID
         const booking_id = await generateBookingId(tx);
-        // 4. Create Booking
+        // 5. Pre-compute GST
+        if (!city.state) {
+            throw new AppError("The selected city has no state configured. Please configure the city before creating bookings.", 400);
+        }
+        const bookingState = city.state;
+        const gst2 = calculateGST(Number(pricingRule.base_price), Number(pricingRule.cgst_percent), Number(pricingRule.sgst_percent), Number(pricingRule.igst_percent), bookingState, companyState);
+        // 6. Create Booking
         const booking = await tx.booking.create({
             data: {
                 booking_id,
@@ -217,28 +294,49 @@ export const createBooking = async (data, userId) => {
                 landmark: data.landmark,
                 city_name: data.city_name,
                 postal_code: data.postal_code,
-                state: data.state,
+                state: bookingState,
                 country: data.country,
                 latitude: data.latitude,
                 longitude: data.longitude,
                 service_name: service.name,
                 base_price: pricingRule.base_price,
                 discount: 0,
-                tax: 0,
-                final_amount: pricingRule.base_price,
+                cgst_percent: gst2.cgst_percent,
+                cgst_amount: gst2.cgst_amount,
+                sgst_percent: gst2.sgst_percent,
+                sgst_amount: gst2.sgst_amount,
+                igst_percent: gst2.igst_percent,
+                igst_amount: gst2.igst_amount,
+                tax: gst2.total_tax,
+                final_amount: pricingRule.base_price + gst2.total_tax,
                 notes: data.notes,
                 special_instructions: data.special_instructions,
                 created_by: userId,
                 status: 'Pending',
             }
         });
+        await tx.bookingHistory.create({
+            data: { booking_id: booking.id, to_status: 'Pending', changed_by: userId }
+        });
         return booking;
+    }, {
+        maxWait: 5000,
+        timeout: 15000
     });
+    // Publish AFTER the transaction commits — handler sees consistent DB state
+    eventBus.publish('Booking.Created', { booking_id: booking.id, scheduled_date: booking.scheduled_date });
+    return booking;
 };
 export const updateBooking = async (id, data, userId) => {
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking)
         throw new AppError('Booking not found', 404);
+    // Financial field lock — these are immutable after creation
+    const LOCKED_FIELDS = ['base_price', 'discount', 'tax', 'final_amount', 'service_id', 'pricing_rule_id'];
+    const attempted = LOCKED_FIELDS.filter(f => f in data);
+    if (attempted.length > 0) {
+        throw new AppError(`Financial and identity fields are immutable after booking creation: ${attempted.join(', ')}`, 400);
+    }
     return prisma.booking.update({
         where: { id },
         data: {
@@ -260,6 +358,10 @@ const VALID_TRANSITIONS = {
     NoShow: []
 };
 export const updateBookingStatus = async (id, newStatus, userId) => {
+    // BUG-F FIX: Cancellation must go through /cancel endpoint to enforce reason + cascade
+    if (newStatus === 'Cancelled') {
+        throw new AppError('Use PATCH /bookings/:id/cancel to cancel a booking. A cancellation reason is required and the linked Job will be cancelled automatically.', 400);
+    }
     return prisma.$transaction(async (tx) => {
         const booking = await tx.booking.findUnique({ where: { id } });
         if (!booking)
@@ -293,27 +395,71 @@ export const updateBookingStatus = async (id, newStatus, userId) => {
             }
         });
         return updated;
+    }, {
+        maxWait: 5000,
+        timeout: 15000
     });
 };
 export const rescheduleBooking = async (id, data, userId) => {
-    const booking = await prisma.booking.findUnique({ where: { id } });
-    if (!booking)
-        throw new AppError('Booking not found', 404);
-    if (['Completed', 'Cancelled', 'NoShow'].includes(booking.status)) {
-        throw new AppError('Cannot reschedule a completed, cancelled, or no-show booking', 400);
-    }
-    return prisma.booking.update({
-        where: { id },
-        data: {
-            scheduled_date: new Date(data.scheduled_date),
-            slot: data.slot,
-            updated_by: userId
+    validateSlot(data.slot);
+    // BUG-E FIX: Fully transactional — syncs Job date + creates history entries in both tables
+    return prisma.$transaction(async (tx) => {
+        const booking = await tx.booking.findUnique({ where: { id }, include: { job: true } });
+        if (!booking)
+            throw new AppError('Booking not found', 404);
+        if (['Completed', 'Cancelled', 'NoShow'].includes(booking.status)) {
+            throw new AppError('Cannot reschedule a completed, cancelled, or no-show booking', 400);
         }
+        const newDate = new Date(data.scheduled_date);
+        const linkedJob = booking.job;
+        const isLinkedJobActive = linkedJob && !['Cancelled', 'Completed'].includes(linkedJob.status);
+        // 1. Availability Validation for Rescheduling
+        if (isLinkedJobActive && linkedJob.assigned_user_id) {
+            const duration = linkedJob.estimated_duration_minutes || 60;
+            const availability = await checkAvailability(linkedJob.assigned_user_id, booking.city_id, newDate, duration, linkedJob.id);
+            if (!availability.available) {
+                throw new AppError(`Cannot reschedule: ${availability.reason}`, 409);
+            }
+        }
+        // 2. Update Booking
+        const updated = await tx.booking.update({
+            where: { id },
+            data: { scheduled_date: newDate, slot: data.slot, updated_by: userId }
+        });
+        // 2. Create BookingHistory
+        await tx.bookingHistory.create({
+            data: {
+                booking_id: booking.id,
+                from_status: booking.status,
+                to_status: booking.status, // Status unchanged — only date moved
+                changed_by: userId
+            }
+        });
+        // 4. Sync linked Job if exists and not terminal
+        if (isLinkedJobActive) {
+            await tx.job.update({
+                where: { id: linkedJob.id },
+                data: { scheduled_start: newDate, status: 'Pending', updated_by: userId }
+            });
+            await tx.jobHistory.create({
+                data: {
+                    job_id: linkedJob.id,
+                    from_status: linkedJob.status,
+                    to_status: 'Pending',
+                    changed_by: userId,
+                    note: `Rescheduled via Booking ${booking.booking_id} to ${newDate.toISOString()}`
+                }
+            });
+        }
+        return updated;
+    }, {
+        maxWait: 5000,
+        timeout: 15000
     });
 };
 export const cancelBooking = async (id, cancel_reason, userId) => {
     return prisma.$transaction(async (tx) => {
-        const booking = await tx.booking.findUnique({ where: { id } });
+        const booking = await tx.booking.findUnique({ where: { id }, include: { job: true } });
         if (!booking)
             throw new AppError('Booking not found', 404);
         if (booking.status === 'Cancelled')
@@ -337,6 +483,30 @@ export const cancelBooking = async (id, cancel_reason, userId) => {
                 changed_by: userId
             }
         });
+        // BUG-001 FIX: Cascade-cancel the linked Job if it exists and is not already in a terminal state
+        const linkedJob = booking.job;
+        if (linkedJob && !['Completed', 'Cancelled'].includes(linkedJob.status)) {
+            await tx.job.update({
+                where: { id: linkedJob.id },
+                data: {
+                    status: 'Cancelled',
+                    cancellation_reason: `Parent booking cancelled. Reason: ${cancel_reason}`,
+                    updated_by: userId,
+                }
+            });
+            await tx.jobHistory.create({
+                data: {
+                    job_id: linkedJob.id,
+                    from_status: linkedJob.status,
+                    to_status: 'Cancelled',
+                    changed_by: userId,
+                    note: `Cascade-cancelled: parent booking ${booking.booking_id} was cancelled.`
+                }
+            });
+        }
         return updated;
+    }, {
+        maxWait: 5000,
+        timeout: 15000
     });
 };

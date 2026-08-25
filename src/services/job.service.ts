@@ -304,8 +304,11 @@ export const getJobs = async (filters: any) => {
 
   return await prisma.job.findMany({
     where,
+    take: filters.limit ? parseInt(filters.limit as string, 10) : undefined,
     include: { booking: { include: { customer: true, city: true, service: true } }, assignedUser: { select: { id: true, name: true } } },
-    orderBy: { scheduled_start: 'asc' }
+    orderBy: filters.sortBy 
+      ? { [filters.sortBy]: filters.sortOrder || 'desc' }
+      : { scheduled_start: 'asc' }
   });
 };
 

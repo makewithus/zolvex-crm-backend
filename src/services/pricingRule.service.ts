@@ -3,8 +3,13 @@ import { AppError } from '../utils/AppError';
 
 const prisma = new PrismaClient();
 
-export const getAllPricingRules = async () => {
+export const getAllPricingRules = async (filters: any = {}) => {
+  const where: any = {};
+  if (filters.service_id) where.service_id = filters.service_id;
+  if (filters.city_id) where.city_id = filters.city_id;
+
   return prisma.pricingRule.findMany({
+    where,
     orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
     include: { service: true, city: true }
   });

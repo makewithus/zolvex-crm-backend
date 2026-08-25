@@ -14,10 +14,14 @@ const ALLOWED_TRANSITIONS: Record<LeadStatus, LeadStatus[]> = {
   Lost: ['New', 'Contacted']
 };
 
-export const getAllLeads = async (cityId?: string) => {
-  const where = cityId ? { city_id: cityId } : {};
-  return prisma.lead.findMany({
+export const getAllLeads = async (cityId?: string, limit?: number) => {
+  const where: any = {};
+  if (cityId) {
+    where.city_id = cityId;
+  }
+  return await prisma.lead.findMany({
     where,
+    take: limit ? limit : undefined,
     orderBy: [
       { created_at: 'desc' },
       { id: 'desc' }

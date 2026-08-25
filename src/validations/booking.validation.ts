@@ -18,6 +18,7 @@ export const createBookingSchema = z.object({
     customer_id: z.string().uuid(),
     city_id: z.string().uuid(),
     service_id: z.string().uuid(),
+    pricing_rule_id: z.string().uuid(),
     scheduled_date: z.string().datetime(),
     slot: z.string().nullable().optional(),
     
@@ -69,6 +70,7 @@ export const cancelBookingSchema = z.object({
 export const convertLeadToBookingSchema = z.object({
   params: z.object({ leadId: z.string().uuid() }),
   body: z.object({
+    pricing_rule_id: z.string().uuid(),
     scheduled_date: z.string().datetime(),
     slot: z.string().nullable().optional(),
     address_line_1: z.string().min(1),

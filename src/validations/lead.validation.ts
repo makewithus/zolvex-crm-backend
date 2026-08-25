@@ -7,6 +7,8 @@ export const createLeadSchema = z.object({
     source: z.enum(['Phone', 'WhatsApp', 'WebsiteForm', 'MetaAds', 'ManualEntry', 'Justdial', 'Referrals']),
     city_id: z.string().uuid().optional().nullable(),
     service_id: z.string().uuid().optional().nullable(),
+    service_location: z.string().optional().nullable(),
+    follow_up_date: z.string().datetime().optional().nullable(),
   }),
 });
 
@@ -18,6 +20,8 @@ export const updateLeadSchema = z.object({
     status: z.enum(['New', 'Contacted', 'FollowUp', 'Qualified', 'QuotationSent', 'Booked', 'Lost']).optional(),
     assigned_to: z.string().uuid().optional().nullable(),
     lost_reason_id: z.string().uuid().optional().nullable(),
+    service_location: z.string().optional().nullable(),
+    follow_up_date: z.string().datetime().optional().nullable(),
   }),
 });
 
