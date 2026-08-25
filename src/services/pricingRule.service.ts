@@ -6,8 +6,12 @@ const prisma = new PrismaClient();
 export const getAllPricingRules = async (filters: any = {}) => {
   const where: any = {};
   if (filters.service_id) where.service_id = filters.service_id;
-  if (filters.city_id) where.city_id = filters.city_id;
-
+  if (filters.city_id) {
+    where.OR = [
+      { city_id: filters.city_id },
+      { city_id: null }
+    ];
+  }
   return prisma.pricingRule.findMany({
     where,
     orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
