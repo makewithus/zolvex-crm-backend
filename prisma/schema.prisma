@@ -36,6 +36,8 @@ model City {
   pricingRules PricingRule[]
   leads        Lead[]
   bookings     Booking[]
+  // Expense relation (additive — new module)
+  expenses     Expense[]
 }
 
 model ServiceArea {
@@ -68,9 +70,12 @@ model User {
   assignedJobs      Job[]               @relation("AssignedJobs")
   Payment           Payment[]
   PaymentHistory    PaymentHistory[]
-  AssignedComplaints Complaint[]       @relation("AssignedComplaints")
+  AssignedComplaints Complaint[]        @relation("AssignedComplaints")
   complaintTimelines ComplaintTimeline[]
   complaintNotes     ComplaintNote[]
+  // Expense relations (additive — new module)
+  createdExpenses   Expense[]           @relation("CreatedExpenses")
+  approvedExpenses  Expense[]           @relation("ApprovedExpenses")
 }
 
 model StaffAvailability {
@@ -1132,4 +1137,71 @@ model WhatsAppMessage {
 
   @@index([thread_id])
   @@index([meta_message_id])
+}
+
+// ----------------------------------------------------------------------
+// FINANCE MODULE: Expense Tracking
+// Additive new module — no existing tables modified.
+// Receipts stored in Cloudflare R2 via existing media.service.ts pattern.
+// Does NOT affect Invoice, Payment, Booking, GST, or existing Reports.
+// ----------------------------------------------------------------------
+
+enum ExpenseCategory {
+  Supplies
+  Travel
+  Salaries
+  Marketing
+  Utilities
+  Maintenance
+  Other
+}
+
+enum ExpenseStatus {
+  Draft
+  Submitted
+  Approved
+  Rejected
+}
+
+model ExpenseSequence {
+  id    Int @id @default(1)
+  value Int @default(1)
+}
+
+model Expense {
+  id              String          @id @default(uuid())
+  expense_number  String          @unique   // e.g. EXP-2608-001
+  sequence_number Int             @unique
+
+  category        ExpenseCategory
+  amount          Decimal         @db.Decimal(10, 2)
+  expense_date    DateTime
+  description     String
+
+  vendor_name     String?         // Optional payee/vendor name
+  receipt_url     String?         // Optional R2 URL (uploaded via existing media service)
+
+  // Optional city association
+  city_id         String?
+  city            City?           @relation(fields: [city_id], references: [id])
+
+  // Status lifecycle: Draft → Submitted → Approved / Rejected
+  status          ExpenseStatus   @default(Draft)
+
+  // Approval audit
+  approved_by     String?
+  approvedBy      User?           @relation("ApprovedExpenses", fields: [approved_by], references: [id])
+
+  // Creator audit
+  created_by      String
+  createdBy       User            @relation("CreatedExpenses", fields: [created_by], references: [id])
+
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+
+  @@index([city_id])
+  @@index([status])
+  @@index([expense_date])
+  @@index([category])
+  @@index([created_by])
 }

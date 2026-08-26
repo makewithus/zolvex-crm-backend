@@ -41,6 +41,7 @@ export interface CreateQuoteInput {
   valid_until?: Date;
   notes?:       string;
   terms?:       string;
+  discount_amount?: number;
   line_items:   LineItemInput[];
   created_by:   string;
 }
@@ -51,6 +52,7 @@ export interface UpdateQuoteInput {
   valid_until?: Date;
   notes?:       string;
   terms?:       string;
+  discount_amount?: number;
   line_items?:  LineItemInput[];
 }
 
@@ -90,7 +92,7 @@ async function generateQuoteId(): Promise<{ id: string; seq: number }> {
 
 // ─── Pricing Calculator ───────────────────────────────────────────────────────
 
-function computeTotals(items: LineItemInput[]) {
+function computeTotals(items: LineItemInput[], discount_amount: number = 0) {
   let subtotal = 0;
   let taxTotal = 0;
 
@@ -103,11 +105,19 @@ function computeTotals(items: LineItemInput[]) {
     return { ...item, total_price: parseFloat(lineTotal.toFixed(2)) };
   });
 
+  if (discount_amount < 0) {
+    throw new Error('Discount amount cannot be negative');
+  }
+  if (discount_amount > subtotal) {
+    throw new Error('Discount amount cannot exceed subtotal');
+  }
+
   return {
     items: computed,
     subtotal:    parseFloat(subtotal.toFixed(2)),
     tax_amount:  parseFloat(taxTotal.toFixed(2)),
-    total_amount: parseFloat((subtotal + taxTotal).toFixed(2)),
+    discount_amount: parseFloat(discount_amount.toFixed(2)),
+    total_amount: parseFloat((subtotal - discount_amount + taxTotal).toFixed(2)),
   };
 }
 
@@ -118,7 +128,7 @@ export class QuoteService {
   /** Create a new Quote (status: Draft) */
   static async createQuote(input: CreateQuoteInput) {
     const generated = await generateQuoteId();
-    const { items, subtotal, tax_amount, total_amount } = computeTotals(input.line_items);
+    const { items, subtotal, tax_amount, discount_amount, total_amount } = computeTotals(input.line_items, input.discount_amount);
 
     const quote = await prisma.quote.create({
       data: {
@@ -134,6 +144,7 @@ export class QuoteService {
         status:          QuoteStatus.Draft,
         subtotal,
         tax_amount,
+        discount_amount,
         total_amount,
         created_by: input.created_by,
         line_items: {
@@ -183,24 +194,46 @@ export class QuoteService {
       terms:       input.terms,
     };
 
-    if (input.line_items) {
-      const { items, subtotal, tax_amount, total_amount } = computeTotals(input.line_items);
+    if (input.discount_amount !== undefined) {
+      data.discount_amount = input.discount_amount;
+    }
+
+    if (input.line_items || input.discount_amount !== undefined) {
+      // If line items are not provided, we must fetch them from the database to recalculate totals correctly
+      let itemsToCompute = input.line_items;
+      if (!itemsToCompute) {
+        const existingItems = await prisma.quoteLineItem.findMany({ where: { quote_id: id } });
+        itemsToCompute = existingItems.map(i => ({
+          service_id: i.service_id ?? undefined,
+          description: i.description,
+          quantity: i.quantity,
+          unit_price: i.unit_price.toNumber(),
+          tax_percent: i.tax_percent.toNumber(),
+          sort_order: i.sort_order
+        }));
+      }
+
+      const { items, subtotal, tax_amount, discount_amount, total_amount } = computeTotals(itemsToCompute, input.discount_amount ?? quote.discount_amount.toNumber());
       data.subtotal     = subtotal;
       data.tax_amount   = tax_amount;
+      data.discount_amount = discount_amount;
       data.total_amount = total_amount;
-      // Replace line items atomically
-      data.line_items = {
-        deleteMany: {},
-        create: items.map(i => ({
-          service_id:  i.service_id,
-          description: i.description,
-          quantity:    i.quantity,
-          unit_price:  i.unit_price,
-          tax_percent: i.tax_percent ?? 18,
-          total_price: i.total_price,
-          sort_order:  i.sort_order ?? 0,
-        })),
-      };
+
+      if (input.line_items) {
+        // Replace line items atomically only if they were provided
+        data.line_items = {
+          deleteMany: {},
+          create: items.map(i => ({
+            service_id:  i.service_id,
+            description: i.description,
+            quantity:    i.quantity,
+            unit_price:  i.unit_price,
+            tax_percent: i.tax_percent ?? 18,
+            total_price: i.total_price,
+            sort_order:  i.sort_order ?? 0,
+          })),
+        };
+      }
     }
 
     return prisma.quote.update({
@@ -232,6 +265,25 @@ export class QuoteService {
     });
 
     eventBus.publish('Quote.Sent', { quote_id: updated.quote_id, customer_id: updated.customer_id });
+
+    // Additive: if quote is linked to a Lead, auto-advance to QuotationSent
+    // Uses the existing ALLOWED_TRANSITIONS in lead.service.ts (Qualified → QuotationSent is valid)
+    if (updated.lead_id) {
+      try {
+        const lead = await prisma.lead.findUnique({ where: { id: updated.lead_id }, select: { status: true } });
+        if (lead && ['Contacted', 'FollowUp', 'Qualified'].includes(lead.status)) {
+          await prisma.$transaction(async (tx) => {
+            await tx.lead.update({ where: { id: updated.lead_id! }, data: { status: 'QuotationSent' } });
+            await tx.leadHistory.create({
+              data: { lead_id: updated.lead_id!, from_stage: lead.status as any, to_stage: 'QuotationSent', changed_by }
+            });
+          });
+        }
+      } catch (leadErr: any) {
+        // Non-blocking: lead update failure must never fail the quote send operation
+        console.error('[QuoteService] Failed to update lead status to QuotationSent:', leadErr.message);
+      }
+    }
 
     return updated;
   }

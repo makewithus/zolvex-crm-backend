@@ -16,6 +16,7 @@ router.post(
 // Read — All roles
 router.get('/',    QuoteController.getQuotes);
 router.get('/:id', QuoteController.getQuoteById);
+router.get('/:id/pdf', QuoteController.generatePdf);
 
 // Update (Draft only) — creator roles
 router.put(

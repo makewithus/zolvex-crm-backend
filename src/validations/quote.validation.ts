@@ -5,10 +5,11 @@ export const createQuoteSchema = Joi.object({
   customer_id: Joi.string().uuid().required(),
   lead_id:     Joi.string().uuid().optional(),
   subject:     Joi.string().min(3).max(200).required(),
-  description: Joi.string().max(2000).optional(),
+  description: Joi.string().max(2000).optional().allow(''),
   valid_until: Joi.date().iso().optional(),
-  notes:       Joi.string().max(2000).optional(),
-  terms:       Joi.string().max(5000).optional(),
+  notes:       Joi.string().max(2000).optional().allow(''),
+  terms:       Joi.string().max(5000).optional().allow(''),
+  discount_amount: Joi.number().min(0).optional().default(0),
   line_items:  Joi.array().items(
     Joi.object({
       service_id:  Joi.string().uuid().optional(),
@@ -24,10 +25,11 @@ export const createQuoteSchema = Joi.object({
 // ─── Update (Draft edits only) ────────────────────────────────────────────────
 export const updateQuoteSchema = Joi.object({
   subject:     Joi.string().min(3).max(200).optional(),
-  description: Joi.string().max(2000).optional(),
+  description: Joi.string().max(2000).optional().allow(''),
   valid_until: Joi.date().iso().optional(),
-  notes:       Joi.string().max(2000).optional(),
-  terms:       Joi.string().max(5000).optional(),
+  notes:       Joi.string().max(2000).optional().allow(''),
+  terms:       Joi.string().max(5000).optional().allow(''),
+  discount_amount: Joi.number().min(0).optional().default(0),
   line_items:  Joi.array().items(
     Joi.object({
       service_id:  Joi.string().uuid().optional(),
