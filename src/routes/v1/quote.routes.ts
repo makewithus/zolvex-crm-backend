@@ -38,14 +38,14 @@ router.post('/:id/view', QuoteController.markViewed);
 // Accept (customer-side action proxied through staff, OR direct customer link)
 router.post(
   '/:id/accept',
-  authorize('Super Admin', 'City Manager', 'Support Agent'),
+  authorize('Super Admin', 'City Manager', 'Support Agent', 'Finance'),
   QuoteController.acceptQuote
 );
 
 // Reject
 router.post(
   '/:id/reject',
-  authorize('Super Admin', 'City Manager', 'Support Agent'),
+  authorize('Super Admin', 'City Manager', 'Support Agent', 'Finance'),
   QuoteController.rejectQuote
 );
 
