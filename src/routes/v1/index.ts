@@ -24,6 +24,7 @@ import whatsappRoutes from './whatsapp.routes';
 import whatsappInboxRoutes from './whatsappInbox.routes';
 import alertRoutes from './alert.routes';
 import searchRoutes from './search.routes';
+import expenseRoutes from './expense.routes';
 
 const router = Router();
 
@@ -49,12 +50,13 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/reports', reportRoutes);
 router.use('/complaints', complaintRoutes);
-// router.use('/quotes', quoteRoutes); // ⏸️ DEFERRED (Sprint 11.2): Pending client workflow decision
+router.use('/quotes', quoteRoutes);    // Sprint 11.2 — Quotation module (activated)
 router.use('/settings', settingsRoutes);
 router.use('/checklists', checklistRoutes);  // Checklist template management
 router.use('/feedback', feedbackRoutes);
 router.use('/webhook', webhookRoutes);   // Public endpoint — no protect middleware
 router.use('/whatsapp-webhook', whatsappRoutes); // Public endpoint for Meta WhatsApp
 router.use('/whatsapp', whatsappInboxRoutes);    // Protected CRM WhatsApp Inbox
+router.use('/expenses', expenseRoutes);  // Finance Module — Expense Tracking
 
 export default router;

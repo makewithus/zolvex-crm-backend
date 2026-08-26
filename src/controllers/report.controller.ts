@@ -236,3 +236,81 @@ export const exportGSTReport = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Export failed' });
   }
 };
+
+// ----------------------------------------------------------------------
+// FINANCE SUMMARY — New additive endpoint
+// Does NOT modify any existing endpoint or service function.
+// Composes existing services + new expense/quotation summaries.
+// ----------------------------------------------------------------------
+
+export const getFinanceSummary = async (req: Request, res: Response) => {
+  const filters = getFilters(req);
+
+  const [revenue, outstanding, collections, gst, expenses, quotations] = await Promise.all([
+    reportService.getRevenueSummary(filters),
+    reportService.getOutstandingSummary(filters),
+    reportService.getCollectionsSummary(filters),
+    reportService.getGSTSummary(filters),
+    reportService.getExpenseSummary(filters),
+    reportService.getQuotationSummary(filters),
+  ]);
+
+  // Net Profit = Issued Invoice Revenue − Approved Expenses
+  // This is additive math only — it does not alter the source calculations.
+  const net_profit = revenue.total_revenue - expenses.approved_expenses;
+
+  sendSuccess(res, 200, 'Finance summary retrieved', {
+    revenue,
+    outstanding,
+    collections,
+    gst,
+    expenses,
+    quotations,
+    net_profit,
+  });
+};
+
+export const exportFinanceSummary = async (req: Request, res: Response) => {
+  try {
+    const filters = getFilters(req);
+    const [revenue, outstanding, collections, expenses, quotations] = await Promise.all([
+      reportService.getRevenueSummary(filters),
+      reportService.getOutstandingSummary(filters),
+      reportService.getCollectionsSummary(filters),
+      reportService.getExpenseSummary(filters),
+      reportService.getQuotationSummary(filters),
+    ]);
+
+    const net_profit = revenue.total_revenue - expenses.approved_expenses;
+    const exportFormat = req.query.format as string;
+    const meta = buildMeta(req, 'Finance Overview Report');
+
+    const headers = ['Section', 'Metric', 'Amount / Count'];
+    const rows: any[][] = [
+      ['Revenue',     'Invoice Revenue',    fmtINR(revenue.total_revenue)],
+      ['Revenue',     'Subtotal',           fmtINR(revenue.total_subtotal)],
+      ['Revenue',     'Total Tax',          fmtINR(revenue.total_tax)],
+      ['Revenue',     'Invoice Count',      revenue.invoice_count],
+      ['Collections', 'Total Collected',    fmtINR(collections.total_collected)],
+      ['Collections', 'Payment Count',      collections.payment_count],
+      ['Outstanding', 'Total Outstanding',  fmtINR(outstanding.total_outstanding)],
+      ['Outstanding', 'Unpaid Invoices',    outstanding.outstanding_invoices_count],
+      ['Expenses',    'Approved Expenses',  fmtINR(expenses.approved_expenses)],
+      ['Expenses',    'Expense Count',      expenses.expense_count],
+      ['Profit',      'Net Profit',         fmtINR(net_profit)],
+      ['Quotations',  'Created',            quotations.quotes_created],
+      ['Quotations',  'Sent',               quotations.quotes_sent],
+      ['Quotations',  'Accepted',           quotations.quotes_accepted],
+      ['Quotations',  'Rejected',           quotations.quotes_rejected],
+      ['Quotations',  'Pipeline Value',     fmtINR(quotations.pipeline_value)],
+    ];
+
+    if (exportFormat === 'pdf') {
+      exportService.generatePDF(res, 'finance-overview', meta, headers, rows);
+    } else {
+      exportService.generateCSV(res, 'finance-overview', meta, headers, rows);
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Export failed' });
+  }
+};

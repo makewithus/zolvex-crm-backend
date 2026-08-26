@@ -1,9 +1,11 @@
-import { PrismaClient, ComplaintStatus, LeadStatus, InvoiceStatus, PaymentStatus } from '@prisma/client';
+import { PrismaClient, ComplaintStatus, LeadStatus, InvoiceStatus, PaymentStatus, ExpenseStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const getAlertsSummary = async () => {
-  const [openComplaints, newLeads, dueFollowUps, unpaidInvoices] = await Promise.all([
+export const getAlertsSummary = async (user: any) => {
+  const isApprover = ['Super Admin', 'Finance'].includes(user?.role);
+
+  const [openComplaints, newLeads, dueFollowUps, unpaidInvoices, pendingExpenses, rejectedExpenses] = await Promise.all([
     prisma.complaint.count({
       where: { status: ComplaintStatus.Open },
     }),
@@ -22,6 +24,8 @@ export const getAlertsSummary = async () => {
         payment_status: PaymentStatus.Unpaid,
       },
     }),
+    isApprover ? prisma.expense.count({ where: { status: ExpenseStatus.Submitted } }) : Promise.resolve(0),
+    prisma.expense.count({ where: { status: ExpenseStatus.Rejected, created_by: user?.id } }),
   ]);
 
   return {
@@ -29,6 +33,8 @@ export const getAlertsSummary = async () => {
     newLeads,
     dueFollowUps,
     unpaidInvoices,
-    total: openComplaints + newLeads + dueFollowUps + unpaidInvoices,
+    pendingExpenses,
+    rejectedExpenses,
+    total: openComplaints + newLeads + dueFollowUps + unpaidInvoices + pendingExpenses + rejectedExpenses,
   };
 };

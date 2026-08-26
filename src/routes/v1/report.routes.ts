@@ -22,4 +22,8 @@ router.get('/export/operational', authorize(...OPERATIONAL_ROLES), reportControl
 router.get('/export/technician', authorize(...OPERATIONAL_ROLES), reportController.exportTechnicianReport);
 router.get('/export/gst', authorize(...REPORT_ROLES), reportController.exportGSTReport);
 
+// Finance Overview — new additive endpoint (Finance + Super Admin only)
+router.get('/finance-summary', authorize(...REPORT_ROLES), reportController.getFinanceSummary);
+router.get('/export/finance-summary', authorize(...REPORT_ROLES), reportController.exportFinanceSummary);
+
 export default router;

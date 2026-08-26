@@ -204,3 +204,78 @@ export const getTechnicianProductivity = async (filters: ReportFilters) => {
 
   return techStats;
 };
+
+// ----------------------------------------------------------------------
+// FINANCE SUMMARY — Additive dimensions (Expense + Quotation)
+// These functions are completely isolated from getRevenueSummary(),
+// getOutstandingSummary(), getCollectionsSummary(), and getGSTSummary().
+// They do NOT affect any existing financial calculation.
+// ----------------------------------------------------------------------
+
+export const getExpenseSummary = async (filters: ReportFilters) => {
+  // Only Approved expenses are operational costs.
+  // Draft, Submitted, and Rejected contribute ₹0.
+  // No GST calculation — Expense model has no tax fields.
+  const where: Prisma.ExpenseWhereInput = {
+    status: 'Approved',
+    ...buildDateFilter('expense_date', filters)
+  };
+
+  // City scoping:
+  // - If city_id filter is set → include city-specific expenses for that city only
+  //   (global expenses with city_id = null are NOT included in city-scoped views)
+  // - If no city_id filter → include ALL approved expenses (city-specific + global)
+  if (filters.city_id) {
+    where.city_id = filters.city_id;
+  }
+
+  const aggregate = await prisma.expense.aggregate({
+    where,
+    _sum: { amount: true },
+    _count: { id: true }
+  });
+
+  return {
+    approved_expenses: Number(aggregate._sum.amount || 0),
+    expense_count: aggregate._count.id
+  };
+};
+
+export const getQuotationSummary = async (filters: ReportFilters) => {
+  // Quotations are NEVER revenue.
+  // This is a separate pipeline tracking dimension only.
+  const where: Prisma.QuoteWhereInput = {
+    ...buildDateFilter('created_at', filters)
+  };
+
+  // Note: Quote table has no city_id — scoping is not supported here.
+  // City Managers will see all quotes for now (safe: quotes are not financial records).
+
+  const [grouped, pipelineAggregate] = await Promise.all([
+    prisma.quote.groupBy({
+      by: ['status'],
+      where,
+      _count: { id: true }
+    }),
+    // Pipeline value = only quotes that are Sent or Viewed (not yet accepted/rejected)
+    // Accepted quotes have already progressed to Booking → Invoice (counted in Revenue)
+    // Including Accepted here would risk perceived double-count, so we exclude them.
+    prisma.quote.aggregate({
+      where: { ...where, status: { in: ['Sent', 'Viewed'] } },
+      _sum: { total_amount: true }
+    })
+  ]);
+
+  const byStatus = grouped.reduce((acc, row) => {
+    acc[row.status] = row._count.id;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return {
+    quotes_created:  (byStatus['Draft'] || 0) + (byStatus['Sent'] || 0) + (byStatus['Viewed'] || 0) + (byStatus['Accepted'] || 0) + (byStatus['Rejected'] || 0) + (byStatus['Expired'] || 0),
+    quotes_sent:     byStatus['Sent'] || 0,
+    quotes_accepted: byStatus['Accepted'] || 0,
+    quotes_rejected: byStatus['Rejected'] || 0,
+    pipeline_value:  Number(pipelineAggregate._sum.total_amount || 0)
+  };
+};

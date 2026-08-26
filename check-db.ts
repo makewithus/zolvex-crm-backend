@@ -2,27 +2,32 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function checkDb() {
-  console.log('🔍 Checking Database State...\n');
+async function main() {
   try {
-    // Check Complaints
-    const complaintsCount = await prisma.complaint.count();
-    console.log(`✅ Complaint table exists (Count: ${complaintsCount})`);
+    console.log('--- Checking existing tables in public schema ---');
+    const tables = await prisma.$queryRaw`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name;
+    `;
+    console.log(tables);
 
-    // Check Feedback
-    const feedbackCount = await prisma.customerFeedback.count();
-    console.log(`✅ CustomerFeedback table exists (Count: ${feedbackCount})`);
+    console.log('\n--- Checking ENUMs ---');
+    const enums = await prisma.$queryRaw`
+      SELECT t.typname AS enum_name
+      FROM pg_type t
+      JOIN pg_enum e ON t.oid = e.enumtypid
+      GROUP BY t.typname
+      ORDER BY t.typname;
+    `;
+    console.log(enums);
 
-    // Check Core Integrity (Leads & Jobs)
-    const leadsCount = await prisma.lead.count();
-    const jobsCount = await prisma.job.count();
-    console.log(`✅ Core tables intact (Leads: ${leadsCount}, Jobs: ${jobsCount})`);
-
-  } catch (error: any) {
-    console.error('❌ Database check failed:', error.message);
+  } catch (err) {
+    console.error('Error querying DB:', err);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-checkDb();
+main();
